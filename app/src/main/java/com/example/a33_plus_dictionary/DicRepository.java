@@ -2,7 +2,10 @@ package com.example.a33_plus_dictionary;
 
 import android.content.Context;
 
+import androidx.constraintlayout.solver.Cache;
+
 import java.io.DataInputStream;
+import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -18,6 +21,9 @@ public class DicRepository
     private ArrayList<String> files;
     private File rootFile;
 
+    private CacheInfo cacheInfo;
+    private File cacheFile;
+
 
 
     public static DicRepository Instance()
@@ -29,6 +35,8 @@ public class DicRepository
     {
         rootFile = context.getFilesDir();
 
+        InitializeCache();
+
         // TODO TEMP
 //        RemoveAllRepository();
 
@@ -39,11 +47,23 @@ public class DicRepository
 
     public DicData LoadAnyData()
     {
-        // TODO : 최신 처리했던 DicName 을 로그로 남긴 후, 해당 DicName 이 파일에 있다면 최우선으로 불러옴
+        if(cacheInfo.lastVisitedDicName.equals("") == false)
+        {
+            for(String file : files)
+            {
+                if(file.equals(cacheInfo.lastVisitedDicName))
+                {
+                    return LoadData(file);
+                }
+            }
+
+            cacheInfo.lastVisitedDicName = "";
+        }
+
         if(files.size() > 0)
         {
-            String tempFirst = files.get(0);
-            return LoadData(tempFirst);
+            String firstDicName = files.get(0);
+            return LoadData(firstDicName);
 
         }
         return new DicData("BaseData", null);
@@ -97,6 +117,8 @@ public class DicRepository
             }
 
             dos.flush();
+
+
         }
         catch(IOException e)
         {
@@ -104,6 +126,7 @@ public class DicRepository
         }
 
         UpdateFiles();
+        UpdateCacheInfo_LastVisitedDicName(name);
     }
 
     public DicData LoadData(String name)
@@ -163,8 +186,67 @@ public class DicRepository
                 return false;
             }
         }
+        return false;
+    }
+
+    public boolean ChangeDicName(String fromName, String toName)
+    {
+        for(int i = 0; i < files.size(); i++)
+        {
+            String name = files.get(i);
+            if(fromName.equals(name))
+            {
+                File fromFile = new File(rootFile, fromName + ".dic");
+                if(fromFile.exists())
+                {
+                    File toFile = new File(rootFile, toName + ".dic");
+
+                    if(fromFile.renameTo(toFile))
+                    {
+                        files.set(i, toName);
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            };
+        }
 
         return false;
     }
 
+    private void InitializeCache()
+    {
+        cacheInfo = new CacheInfo();
+        cacheFile = new File(rootFile, "cache.cac");
+        if(cacheFile.exists())
+        {
+            try(DataInputStream dis = new DataInputStream((new FileInputStream(cacheFile))))
+            {
+                cacheInfo.lastVisitedDicName = dis.readUTF();
+            }
+            catch(IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void UpdateCacheInfo_LastVisitedDicName(String dicName)
+    {
+        if(cacheInfo.lastVisitedDicName.equals(dicName)) return;
+
+        cacheInfo.lastVisitedDicName = dicName;
+        try(DataOutputStream dos = new DataOutputStream((new FileOutputStream(cacheFile))))
+        {
+            dos.writeUTF(cacheInfo.lastVisitedDicName);
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
 }
+

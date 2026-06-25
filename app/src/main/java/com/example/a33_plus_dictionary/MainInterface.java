@@ -22,13 +22,7 @@ public class MainInterface
     private MainInterfaceBinding mainBinding;
     private DicData dicData;
 
-    private enum ShowState
-    {
-        HideMeaning,
-        HideWord
-    };
-    private ShowState showState = ShowState.HideMeaning;
-
+    private boolean isWordHide = false;
 
     public void Initialize(Context context)
     {
@@ -45,6 +39,9 @@ public class MainInterface
         {
             OnShowDictionariesButtonClicked(v.getContext());
         });
+        mainBinding.buttonMode.setOnClickListener(v->{OnModeChangeButtonClicked(v.getContext());});
+        mainBinding.buttonHideAll.setOnClickListener(v->{OnHideAllButtonClicked(v.getContext());});
+        mainBinding.buttonShowAll.setOnClickListener(v->{OnShowAllButtonClicked(v.getContext());});
 
         Interface_CleanAndShowAllWords(context);
     }
@@ -118,7 +115,7 @@ public class MainInterface
 
         String first;
         String second;
-        if(showState == ShowState.HideMeaning)
+        if(isWordHide == false)
         {
           first = pair.word;
           second = pair.meaning;
@@ -132,7 +129,7 @@ public class MainInterface
         wordBinding.textSecond.setText(second);
 
         wordBinding.getRoot().setOnClickListener(v-> {
-            SetOnWordClicked(v, wordBinding, second);});
+            SetOnWordClicked(v, wordBinding, pos);});
         wordBinding.getRoot().setOnLongClickListener(v->
         {
             SetOnWordLongClicked(v, wordBinding, pos, pair);
@@ -144,18 +141,36 @@ public class MainInterface
     }
 
 
-    private void SetOnWordClicked(View wordView, WordBinding wordBinding, String second)
+    private void SetOnWordClicked(View wordView, WordBinding wordBinding, int pos)
     {
-        if(wordBinding.textSecond.getText() == "")
+        if(wordBinding.textSecond.getText().equals(""))
         {
-            wordBinding.textSecond.setText(second);
+            ShowWord(wordBinding, pos);
         }
         else
         {
-            wordBinding.textSecond.setText("");
+            HideWord(wordBinding);
         }
     }
 
+    private void HideWord(WordBinding wordBinding)
+    {
+        wordBinding.textSecond.setText("");
+    }
+    private void ShowWord(WordBinding wordBinding, int pos)
+    {
+        String second;
+        SPair pair = dicData.data.get(dicData.shakePos.get(pos));
+        if(isWordHide == false)
+        {
+            second = pair.meaning;
+        }
+        else
+        {
+            second = pair.word;
+        }
+        wordBinding.textSecond.setText(second);
+    }
 
     private void SetOnWordLongClicked(View wordView, WordBinding wordBinding, int pos, SPair pair)
     {
@@ -215,7 +230,7 @@ public class MainInterface
     {
         String first;
         String second;
-        if(showState == ShowState.HideMeaning)
+        if(isWordHide == false)
         {
             first = pair.word;
             second = pair.meaning;
@@ -230,7 +245,7 @@ public class MainInterface
         wordBinding.textSecond.setText(second);
         wordBinding.getRoot().setOnClickListener(v->
         {
-            SetOnWordClicked(wordView, wordBinding, second);
+            SetOnWordClicked(wordView, wordBinding, pos);
         });
         wordBinding.getRoot().setOnLongClickListener(v->
         {
@@ -307,6 +322,7 @@ public class MainInterface
         for(String dicName : dicNames)
         {
             Button dicButton = new Button(context);
+            dicButton.setAllCaps(false);
             dicButton.setText(dicName);
             dicButton.setOnClickListener(v->
             {
@@ -350,24 +366,27 @@ public class MainInterface
 
     private void ChangeDic(View view, String dicName)
     {
-        if(dicName == dicData.dicName) return;
+        if(dicName.equals(dicData.dicName)) return;
         Context context = view.getContext();
 
 
         dicData = DicRepository.Instance().LoadData(dicName);
+
+        SetModeDefault();
         Interface_CleanAndShowAllWords(context);
         mainBinding.textViewDicName.setText(dicName);
     }
 
     private boolean MakeNewDic(View view, String dicName)
     {
+        if(dicName.equals("")) return false;
+
         Context context = view.getContext();
-        if(dicName == "") return false;
 
         ArrayList<String> dicNames = DicRepository.Instance().GetDicNames();
         for(String name : dicNames)
         {
-            if(dicName == name) return false;
+            if(dicName.equals(name)) return false;
         }
 
         DicRepository.Instance().SaveDicData(dicData);
@@ -375,6 +394,7 @@ public class MainInterface
         dicData = new DicData(dicName, null);
         DicRepository.Instance().SaveDicData(dicData);
 
+        SetModeDefault();
         Interface_CleanAndShowAllWords(context);
         mainBinding.textViewDicName.setText(dicData.dicName);
         return true;
@@ -402,22 +422,114 @@ public class MainInterface
             OnDicDeleteButtonClicked(v, dicName, dicReposDialog);
             dialog.dismiss();
         });
+        binding.buttonEdit.setOnClickListener(v->
+        {
+            OnDicNameChangeButtonClicked(view, dicName, dicReposDialog);
+            dialog.dismiss();
+        });
     }
     private void OnDicDeleteButtonClicked(View view, String dicName,
                                           AlertDialog dicReposDialog)
     {
         Context context = view.getContext();
-        boolean isCurrentDic = (dicName.equals(dicData.dicName));
+        boolean isCurrentDic = dicName.equals(dicData.dicName);
         if(DicRepository.Instance().DeleteDic(dicName))
         {
             dicReposDialog.dismiss();
-            OnShowDictionariesButtonClicked(view.getContext());
+            OnShowDictionariesButtonClicked(context);
 
             if(isCurrentDic)
             {
                 dicData = DicRepository.Instance().LoadAnyData();
                 Interface_CleanAndShowAllWords(context);
                 mainBinding.textViewDicName.setText(dicData.dicName);
+            }
+        }
+    }
+
+    private void OnDicNameChangeButtonClicked(View view, String dickName,
+                                               AlertDialog dicReposeDialog)
+    {
+        Context context = view.getContext();
+        OneStringBinding binding = OneStringBinding.inflate(LayoutInflater.from(context));
+        AlertDialog dialog = new AlertDialog.Builder(context).setView(binding.getRoot())
+                .create();
+        dialog.show();
+
+        binding.editText.setText(dickName);
+        binding.buttonOk.setOnClickListener(v->
+        {
+            ChangeDicName(view, dickName, binding.editText.getText().toString(),
+                    dicReposeDialog);
+            dialog.dismiss();
+        });
+        binding.buttonCancel.setOnClickListener(v->{dialog.dismiss();});
+    }
+
+    private void ChangeDicName(View view, String fromName, String toName,
+                                              AlertDialog dicReposeDialog)
+    {
+        if(toName.equals("")) return;
+
+        Context context = view.getContext();
+        boolean isCurrentDic = fromName.equals(dicData.dicName);
+        if(DicRepository.Instance().ChangeDicName(fromName, toName))
+        {
+            dicReposeDialog.dismiss();
+            OnShowDictionariesButtonClicked(context);
+
+            if(isCurrentDic)
+            {
+                dicData.dicName = toName;
+                Interface_CleanAndShowAllWords(context);
+                mainBinding.textViewDicName.setText(toName);
+            }
+        }
+    }
+
+
+    private void OnModeChangeButtonClicked(Context context)
+    {
+        isWordHide = !isWordHide;
+        if(isWordHide == false)
+        {
+            mainBinding.buttonMode.setText("단어 모드");
+        }
+        else
+        {
+            mainBinding.buttonMode.setText("뜻 모드");
+        }
+
+        Interface_CleanAndShowAllWords(context);
+    }
+    private void SetModeDefault()
+    {
+        isWordHide = false;
+        mainBinding.buttonMode.setText("단어 모드");
+    }
+
+    private void OnHideAllButtonClicked(Context context)
+    {
+        int size = mainBinding.wordsLine.getChildCount();
+        for(int i = 0; i < size; i++)
+        {
+            View child = mainBinding.wordsLine.getChildAt(i);
+            WordBinding binding = WordBinding.bind(child);
+
+            HideWord(binding);
+        }
+    }
+    private void OnShowAllButtonClicked(Context context)
+    {
+        int size = mainBinding.wordsLine.getChildCount();
+        for(int i = 0; i < size; i++)
+        {
+            View child = mainBinding.wordsLine.getChildAt(i);
+            WordBinding binding = WordBinding.bind(child);
+
+            if(binding.textSecond.getText().toString().equals(""))
+            {
+                ShowWord(binding, i);
             }
         }
     }

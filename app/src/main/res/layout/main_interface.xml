@@ -58,7 +58,7 @@
         android:orientation="horizontal">
 
         <Button
-            android:id="@+id/button_hide"
+            android:id="@+id/button_hide_all"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -76,7 +76,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="단어 모드" />
+            android:text="뜻 모드" />
 
         <Button
             android:id="@+id/button_shake"
@@ -87,10 +87,13 @@
 
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/words_line"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical" />
+        android:layout_height="match_parent">
+        <LinearLayout
+            android:id="@+id/words_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
 </LinearLayout>
