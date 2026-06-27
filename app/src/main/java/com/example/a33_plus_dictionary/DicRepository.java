@@ -4,6 +4,7 @@ import android.content.Context;
 
 import androidx.constraintlayout.solver.Cache;
 
+import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.DataOutputStream;
@@ -103,12 +104,15 @@ public class DicRepository
 
     }
 
+    // V_1_1
     private void SaveData(String name, ArrayList<SPair> pairs)
     {
         File savedFile = new File(rootFile, name + ".dic");
 
         try(DataOutputStream dos = new DataOutputStream(new FileOutputStream(savedFile)))
         {
+            dos.writeInt(AppConfig.GetVersionByInt());
+
             dos.writeInt(pairs.size());
             for(SPair pair : pairs)
             {
@@ -126,13 +130,30 @@ public class DicRepository
         }
 
         UpdateFiles();
-        UpdateCacheInfo_LastVisitedDicName(name);
     }
 
     public DicData LoadData(String name)
     {
         File loadedFile = new File(rootFile, name + ".dic");
         try(DataInputStream dis = new DataInputStream(new FileInputStream(loadedFile)))
+        {
+            int version = dis.readInt();
+            if(version == 11)
+            {
+                return LoadData_1_1(name, dis);
+            }
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public DicData LoadData_1_1(String name, DataInputStream dis)
+    {
+        try
         {
             int size = dis.readInt();
             ArrayList<SPair> pairs = new ArrayList<SPair>(size); // size() 확보가 아닌, 공간 확보
@@ -234,7 +255,7 @@ public class DicRepository
         }
     }
 
-    private void UpdateCacheInfo_LastVisitedDicName(String dicName)
+    public void UpdateCacheInfo_LastVisitedDicName(String dicName)
     {
         if(cacheInfo.lastVisitedDicName.equals(dicName)) return;
 
