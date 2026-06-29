@@ -3,10 +3,8 @@ package com.example.a33_plus_dictionary;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 
 import com.example.a33_plus_dictionary.databinding.DicReposBinding;
@@ -38,7 +36,6 @@ public class MainInterface
         dicData = DicRepository.Instance().Initialize(context);
 
 
-        mainBinding.textViewDicName.setText(dicData.dicName);
         mainBinding.buttonAdd.setOnClickListener(this::SetAddButton);
         mainBinding.buttonShake.setOnClickListener(this::OnShakeButtonClicked);
         mainBinding.buttonShowDictionaries.setOnClickListener(v ->
@@ -62,7 +59,7 @@ public class MainInterface
             OnOthersButtonClicked(v.getContext());
         });
 
-        Interface_CleanAndShowAllWords(context);
+        UpdateAllMainInterface(context);
     }
 
     public View GetRootView()
@@ -71,6 +68,17 @@ public class MainInterface
 
         return mainBinding.getRoot();
     }
+
+
+
+    private void UpdateAllMainInterface(Context context)
+    {
+        SetModeDefault();
+        Interface_CleanAndShowAllWords(context);
+        mainBinding.textViewDicName.setText(dicData.dicInfo.dicName);
+        DicRepository.Instance().UpdateCacheInfo(dicData.dicInfo.dicName);
+    }
+
 
 
     private void SetAddButton(View view)
@@ -104,6 +112,8 @@ public class MainInterface
     }
 
 
+
+
     /*------------------------
                Add
     ------------------------*/
@@ -116,7 +126,7 @@ public class MainInterface
         Interface_AddWord(context, pos, sPair, false);
 
         // SaveData
-        DicRepository.Instance().SaveDicData(dicData);
+        DicRepository.Instance().UpdateDicData(dicData);
     }
 
     private void Interface_CleanAndShowAllWords(Context context)
@@ -129,6 +139,8 @@ public class MainInterface
             Interface_AddWord(context, i, dicData.data.get(index), false);
         }
     }
+
+
 
 
     private void Interface_AddWord(Context context, int pos, SPair pair,
@@ -282,7 +294,7 @@ public class MainInterface
         Interface_EditWord(wordView, wordBinding, pos, pair);
 
         // SaveData
-        DicRepository.Instance().SaveDicData(dicData);
+        DicRepository.Instance().UpdateDicData(dicData);
     }
 
     private void Interface_EditWord(View wordView, WordBinding wordBinding, int pos, SPair pair)
@@ -356,33 +368,33 @@ public class MainInterface
         }
 
         // SaveData
-        DicRepository.Instance().SaveDicData(dicData);
+        DicRepository.Instance().UpdateDicData(dicData);
     }
 
 
     private void OnShowDictionariesButtonClicked(Context context)
     {
-        ArrayList<String> dicNames = DicRepository.Instance().GetDicNames();
+        ArrayList<DicInfo> dicInfos = DicRepository.Instance().GetDicInfos();
 
         DicReposBinding binding = DicReposBinding.inflate(LayoutInflater.from(context));
         AlertDialog dialog = new AlertDialog.Builder(context).setView(binding.getRoot())
                 .create();
         dialog.show();
 
-        for (String dicName : dicNames)
+        for (DicInfo dicInfo : dicInfos)
         {
             Button dicButton = new Button(context);
             dicButton.setAllCaps(false);
-            dicButton.setText(dicName);
+            dicButton.setText(dicInfo.dicName);
             dicButton.setOnClickListener(v ->
             {
-                ChangeDic(v, dicName);
+                ChangeDic(v, dicInfo);
                 dialog.dismiss();
             });
             binding.dicNames.addView(dicButton);
             dicButton.setOnLongClickListener(v ->
             {
-                OnDicLongClicked(v, dicName, dialog);
+                OnDicLongClicked(v, dicInfo, dialog);
                 return true;
             });
 
@@ -421,25 +433,23 @@ public class MainInterface
         {
             if (MakeNewDic(view, binding.editText.getText().toString()) == false)
             {
-                DebugHelper.Instance().ShowInformInterface(context, null,
+                DebugHelper.Instance().ShowInformInterface(context,
                         "새로운 사전 만들기 실패");
             }
             dialog.dismiss();
         });
     }
 
-    private void ChangeDic(View view, String dicName)
+    // @@@ 추후 dicName 받지 말고, DicInfo 를 받아 처리하자
+    private void ChangeDic(View view, DicInfo dicInfo)
     {
-        if (dicName.equals(dicData.dicName)) return;
+        if (dicInfo.dicName.equals(dicData.dicInfo.dicName)) return;
         Context context = view.getContext();
 
 
-        dicData = DicRepository.Instance().LoadData(dicName);
+        dicData = DicRepository.Instance().LoadData(dicInfo);
 
-        SetModeDefault();
-        Interface_CleanAndShowAllWords(context);
-        mainBinding.textViewDicName.setText(dicName);
-        DicRepository.Instance().UpdateCacheInfo_LastVisitedDicName(dicName);
+        UpdateAllMainInterface(context);
     }
 
     private boolean MakeNewDic(View view, String dicName)
@@ -448,26 +458,21 @@ public class MainInterface
 
         Context context = view.getContext();
 
-        ArrayList<String> dicNames = DicRepository.Instance().GetDicNames();
-        for (String name : dicNames)
-        {
-            if (dicName.equals(name)) return false;
-        }
 
-        DicRepository.Instance().SaveDicData(dicData);
+        DicData newData = DicRepository.Instance().TryToMakeNewDicData(dicName);
+        if(newData == null) return false;
 
-        dicData = new DicData(dicName, null);
-        DicRepository.Instance().SaveDicData(dicData);
+        DicRepository.Instance().UpdateDicData(dicData);
 
-        SetModeDefault();
-        Interface_CleanAndShowAllWords(context);
-        mainBinding.textViewDicName.setText(dicName);
-        DicRepository.Instance().UpdateCacheInfo_LastVisitedDicName(dicName);
+        dicData = newData;
+        UpdateAllMainInterface(context);
         return true;
     }
 
 
-    private void OnDicLongClicked(View view, String dicName, AlertDialog dicReposDialog)
+
+
+    private void OnDicLongClicked(View view, DicInfo dicInfo, AlertDialog dicReposDialog)
     {
         Context context = view.getContext();
         WordLongClickBinding binding = WordLongClickBinding.inflate(LayoutInflater.from(context));
@@ -475,29 +480,29 @@ public class MainInterface
                 .create();
         dialog.show();
 
-        binding.textWord.setText(dicName);
+        binding.textWord.setText(dicInfo.dicName);
         binding.buttonCancel.setOnClickListener(v ->
         {
             dialog.dismiss();
         });
         binding.buttonDelete.setOnClickListener(v ->
         {
-            OnDicDeleteButtonClicked(v, dicName, dicReposDialog);
+            OnDicDeleteButtonClicked(v, dicInfo, dicReposDialog);
             dialog.dismiss();
         });
         binding.buttonEdit.setOnClickListener(v ->
         {
-            OnDicNameChangeButtonClicked(view, dicName, dicReposDialog);
+            OnDicNameChangeButtonClicked(view, dicInfo, dicReposDialog);
             dialog.dismiss();
         });
     }
 
-    private void OnDicDeleteButtonClicked(View view, String dicName,
+    private void OnDicDeleteButtonClicked(View view, DicInfo dicInfo,
                                           AlertDialog dicReposDialog)
     {
         Context context = view.getContext();
-        boolean isCurrentDic = dicName.equals(dicData.dicName);
-        if (DicRepository.Instance().DeleteDic(dicName))
+        boolean isCurrentDic = dicInfo.dicName.equals(dicData.dicInfo.dicName);
+        if (DicRepository.Instance().DeleteDic(dicInfo))
         {
             dicReposDialog.dismiss();
             OnShowDictionariesButtonClicked(context);
@@ -505,13 +510,12 @@ public class MainInterface
             if (isCurrentDic)
             {
                 dicData = DicRepository.Instance().LoadAnyData();
-                Interface_CleanAndShowAllWords(context);
-                mainBinding.textViewDicName.setText(dicData.dicName);
+                UpdateAllMainInterface(context);
             }
         }
     }
 
-    private void OnDicNameChangeButtonClicked(View view, String dickName,
+    private void OnDicNameChangeButtonClicked(View view, DicInfo dicInfo,
                                               AlertDialog dicReposeDialog)
     {
         Context context = view.getContext();
@@ -520,7 +524,7 @@ public class MainInterface
                 .create();
         dialog.show();
 
-        binding.editText.setText(dickName);
+        binding.editText.setText(dicInfo.dicName);
         binding.editText.requestFocus();
         Window window = dialog.getWindow();
         if (window != null)
@@ -530,7 +534,7 @@ public class MainInterface
 
         binding.buttonOk.setOnClickListener(v ->
         {
-            ChangeDicName(view, dickName, binding.editText.getText().toString(),
+            ChangeDicName(view, dicInfo, binding.editText.getText().toString(),
                     dicReposeDialog);
             dialog.dismiss();
         });
@@ -540,24 +544,21 @@ public class MainInterface
         });
     }
 
-    private void ChangeDicName(View view, String fromName, String toName,
+    private void ChangeDicName(View view, DicInfo dicInfo, String toName,
                                AlertDialog dicReposeDialog)
     {
         if (toName.equals("")) return;
 
         Context context = view.getContext();
-        boolean isCurrentDic = fromName.equals(dicData.dicName);
-        if (DicRepository.Instance().ChangeDicName(fromName, toName))
+        boolean isCurrentDic = dicInfo.dicName.equals(dicData.dicInfo.dicName);
+        if (DicRepository.Instance().ChangeDicName(dicInfo, toName))
         {
             dicReposeDialog.dismiss();
             OnShowDictionariesButtonClicked(context);
 
             if (isCurrentDic)
             {
-                dicData.dicName = toName;
-                Interface_CleanAndShowAllWords(context);
-                mainBinding.textViewDicName.setText(toName);
-                DicRepository.Instance().UpdateCacheInfo_LastVisitedDicName(toName);
+                UpdateAllMainInterface(context);
             }
         }
     }
@@ -633,16 +634,15 @@ public class MainInterface
                 {
                     Consumer<DicData> onImportFromZipCompleted = (DicData newDic) ->
                     {
-                        if(newDic == null)
+                        if (newDic == null)
                         {
-                            DebugHelper.Instance().ShowInformInterface(context, null,
+                            DebugHelper.Instance().ShowInformInterface(context,
                                     "데이터를 불러오는 데 실패했습니다.\n올바른 Zip 파일인지"
-                            + " 확인 바랍니다.");
+                                            + " 확인 바랍니다.");
                             return;
                         }
                         dicData = newDic;
-                        Interface_CleanAndShowAllWords(context);
-                        mainBinding.textViewDicName.setText(dicData.dicName);
+                        UpdateAllMainInterface(context);
                     };
 
                     DicRepository.Instance().ImportFromZip(context, onImportFromZipCompleted);
@@ -651,7 +651,7 @@ public class MainInterface
 
             DebugHelper.Instance().ShowInformOKInterface(context,
                     "실행시 기존 데이터가 모두 삭제되고,\n zip 에서 추출한 데이터로 모두 대체됩니다"
-                + "\n진행하겠습니까?", consumer);
+                            + "\n진행하겠습니까?", consumer);
 
             dialog.dismiss();
         });

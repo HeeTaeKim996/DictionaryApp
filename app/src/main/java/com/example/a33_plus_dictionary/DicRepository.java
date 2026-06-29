@@ -15,7 +15,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
-import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -37,11 +36,15 @@ public class DicRepository
     {
     }
 
-    private ArrayList<String> dicNames;
+
     private File rootFile;
+    private File dicRootFile;
 
     private CacheInfo cacheInfo;
     private File cacheFile;
+
+
+    private ArrayList<DicInfo> dicInfos;
 
 
     public static DicRepository Instance()
@@ -52,14 +55,23 @@ public class DicRepository
     public DicData Initialize(Context context)
     {
         rootFile = context.getFilesDir();
+        dicRootFile = new File(rootFile, "dic");
+        File iniFile = new File(rootFile, "Init.ini");
+
+        if (dicRootFile.exists() == false)
+        {
+            dicRootFile.mkdir();
+        }
+
+        dicInfos = new ArrayList<DicInfo>();
 
 
-        InitializeCache();
 
-        // TEMP REMOVE ALL DICS
-//        DeleteAllDataFromRootFile();
+//        DeleteAllFilesFromRootFile();
 
-        UpdateFiles();
+        InitializeData_v_1_1();
+
+//        Debug_ShowAllRootFiles(context);
 
         return LoadAnyData();
     }
@@ -68,30 +80,40 @@ public class DicRepository
     {
         if (cacheInfo.lastVisitedDicName.equals("") == false)
         {
-            for (String file : dicNames)
+            for (DicInfo dicInfo : dicInfos)
             {
-                if (file.equals(cacheInfo.lastVisitedDicName))
+                String dicName = dicInfo.dicName;
+                if (dicName.equals(cacheInfo.lastVisitedDicName))
                 {
-                    return LoadData(file);
+                    return LoadData(dicInfo);
                 }
             }
 
             cacheInfo.lastVisitedDicName = "";
         }
 
-        if (dicNames.size() > 0)
+        if (dicInfos.size() > 0)
         {
-            String firstDicName = dicNames.get(0);
-            return LoadData(firstDicName);
+            DicInfo firstInfo = dicInfos.get(0);
+            return LoadData(firstInfo);
 
         }
-        return new DicData("BaseData", null);
+        DicInfo dicInfo = new DicInfo();
+        dicInfo.dicName = "BaseData";
+        return new DicData(dicInfo, null);
     }
 
-    private void UpdateFiles()
+
+    private void InitializeData_v_1_1()
     {
-        File[] tempFiles = rootFile.listFiles();
-        dicNames = new ArrayList<String>();
+        InitializeDicInfos_v_1_1();
+        InitializeCache_1_1();
+    }
+
+
+    private void InitializeDicInfos_v_1_1()
+    {
+        File[] tempFiles = dicRootFile.listFiles();
         if (tempFiles != null)
         {
             for (File file : tempFiles)
@@ -102,29 +124,54 @@ public class DicRepository
                     if (fileName.endsWith(".dic"))
                     {
                         fileName = fileName.substring(0, fileName.length() - 4);
-                        dicNames.add(fileName);
+                        DicInfo dicInfo = new DicInfo();
+                        dicInfo.dicName = fileName;
+
+                        dicInfos.add(dicInfo);
                     }
                 }
             }
         }
     }
 
-    public ArrayList<String> GetDicNames()
+    private void InitializeCache_1_1()
     {
-        return dicNames;
+        cacheInfo = new CacheInfo();
+        cacheFile = new File(rootFile, "cache.cac");
+
+        if (cacheFile.exists())
+        {
+            try (DataInputStream dis = new DataInputStream((new FileInputStream(cacheFile))))
+            {
+                int version = dis.readInt();
+
+                cacheInfo.lastVisitedDicName = dis.readUTF();
+
+            } catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
     }
 
 
-    public void SaveDicData(DicData dicData)
+    // Temp
+    public ArrayList<DicInfo> GetDicInfos()
     {
-        SaveData(dicData.dicName, dicData.data);
+        return dicInfos;
+    }
 
+
+    public void UpdateDicData(DicData dicData)
+    {
+        DicInfo dicInfo = dicData.dicInfo;
+        SaveDicData_v_1_1(dicInfo, dicData.data);
     }
 
     // V_1_1
-    private void SaveData(String name, ArrayList<SPair> pairs)
+    private void SaveDicData_v_1_1(DicInfo dicInfo, ArrayList<SPair> pairs)
     {
-        File savedFile = new File(rootFile, name + ".dic");
+        File savedFile = MakeDicFile(dicInfo.dicName);
 
         try (DataOutputStream dos = new DataOutputStream(new FileOutputStream(savedFile)))
         {
@@ -144,19 +191,45 @@ public class DicRepository
         {
             e.printStackTrace();
         }
-
-        UpdateFiles();
     }
 
-    public DicData LoadData(String name)
+    private File MakeDicFile(String dicName)
     {
-        File loadedFile = new File(rootFile, name + ".dic");
+        return new File(dicRootFile, dicName + ".dic");
+    }
+
+    public DicData TryToMakeNewDicData(String newDicName)
+    {
+        for (DicInfo dicInfo : dicInfos)
+        {
+            if (dicInfo.dicName.equals(newDicName))
+            {
+                return null;
+            }
+        }
+
+        File file = MakeDicFile((newDicName));
+        DicInfo newInfo = new DicInfo();
+        newInfo.dicName = newDicName;
+
+        DicData newData = new DicData(newInfo, null);
+
+        dicInfos.add(newInfo);
+        SaveDicData_v_1_1(newInfo, newData.data);
+
+        return newData;
+    }
+
+
+    public DicData LoadData(DicInfo dicInfo)
+    {
+        File loadedFile = MakeDicFile(dicInfo.dicName);
         try (DataInputStream dis = new DataInputStream(new FileInputStream(loadedFile)))
         {
             int version = dis.readInt();
             if (version == 11)
             {
-                return LoadData_1_1__(name, dis);
+                return LoadData_1_1__(dicInfo, dis);
             }
         } catch (IOException e)
         {
@@ -166,7 +239,7 @@ public class DicRepository
         return null;
     }
 
-    public DicData LoadData_1_1__(String name, DataInputStream dis)
+    public DicData LoadData_1_1__(DicInfo dicInfo, DataInputStream dis)
     {
         try
         {
@@ -179,7 +252,8 @@ public class DicRepository
                 pairs.add(new SPair(word, meaning));
             }
 
-            return new DicData(name, pairs);
+
+            return new DicData(dicInfo, pairs);
         } catch (Exception e)
         {
             e.printStackTrace();
@@ -188,7 +262,7 @@ public class DicRepository
         return null;
     }
 
-    private void DeleteAllDataFromRootFile()
+    private void DeleteAllFilesFromRootFile()
     {
         File[] allFiles = rootFile.listFiles();
         if (allFiles != null)
@@ -202,22 +276,31 @@ public class DicRepository
             }
         }
 
-        dicNames.clear();
-        cacheFile.delete();
+//        allFiles = dicRootFile.listFiles();
+//        if (allFiles != null)
+//        {
+//            for (File file : allFiles)
+//            {
+//                file.delete();
+//
+//            }
+//        }
+
+        dicInfos.clear();
+        cacheInfo = new CacheInfo();
     }
 
-    public boolean DeleteDic(String dicName)
+    public boolean DeleteDic(DicInfo dicInfo)
     {
-        for (int i = 0; i < dicNames.size(); i++)
+        for (int i = 0; i < dicInfos.size(); i++)
         {
-            String name = dicNames.get(i);
-            if (dicName.equals(name))
+            if (dicInfos.get(i).equals(dicInfo))
             {
-                File deletedFile = new File(rootFile, dicName + ".dic");
+                File deletedFile = MakeDicFile(dicInfo.dicName);
                 if (deletedFile.exists())
                 {
                     deletedFile.delete();
-                    dicNames.remove(i);
+                    dicInfos.remove(i);
                     return true;
                 }
 
@@ -227,21 +310,20 @@ public class DicRepository
         return false;
     }
 
-    public boolean ChangeDicName(String fromName, String toName)
+    public boolean ChangeDicName(DicInfo changingInfo, String toName)
     {
-        for (int i = 0; i < dicNames.size(); i++)
+        for (DicInfo dicInfo : dicInfos)
         {
-            String name = dicNames.get(i);
-            if (fromName.equals(name))
+            if (dicInfo.equals(changingInfo))
             {
-                File fromFile = new File(rootFile, fromName + ".dic");
+                File fromFile = MakeDicFile(dicInfo.dicName);
                 if (fromFile.exists())
                 {
-                    File toFile = new File(rootFile, toName + ".dic");
+                    File toFile = MakeDicFile(toName);
 
                     if (fromFile.renameTo(toFile))
                     {
-                        dicNames.set(i, toName);
+                        dicInfo.dicName = toName;
                         return true;
                     } else
                     {
@@ -249,57 +331,13 @@ public class DicRepository
                     }
                 }
             }
-            ;
         }
 
         return false;
     }
 
 
-    private void InitializeCache()
-    {
-        cacheInfo = new CacheInfo();
-        cacheFile = new File(rootFile, "cache.cac");
-
-        if (cacheFile.exists())
-        {
-            try (DataInputStream dis = new DataInputStream((new FileInputStream(cacheFile))))
-            {
-                int version = dis.readInt();
-                if (version == 11)
-                {
-                    ReadCache_v_1_1__(dis);
-                }
-            } catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private void ReadCache_v_1_1__(DataInputStream dis)
-    {
-        try
-        {
-            cacheInfo.lastVisitedDicName = dis.readUTF();
-        } catch (IOException e)
-        {
-            e.printStackTrace();
-        }
-    }
-
-
-    private void DeleteCacheData()
-    {
-        File tempFile = new File(rootFile, "cache.cac");
-        if (tempFile.exists())
-        {
-            tempFile.delete();
-        }
-    }
-
-
-    public void UpdateCacheInfo_LastVisitedDicName(String dicName)
+    public void UpdateCacheInfo(String dicName)
     {
         if (cacheInfo.lastVisitedDicName.equals(dicName)) return;
 
@@ -328,7 +366,7 @@ public class DicRepository
 
         if (uri == null) return;
 
-        UpdateFiles();
+        InitializeDicInfos_v_1_1();
 
         try (OutputStream targetOutputStream = resolver.openOutputStream(uri);)
         {
@@ -367,9 +405,10 @@ public class DicRepository
                     }
                 };
 
-                for (String dicName : dicNames)
+                for (DicInfo dicInfo : dicInfos)
                 {
-                    File file = new File(rootFile, dicName + ".dic");
+                    String dicName = dicInfo.dicName;
+                    File file = MakeDicFile(dicInfo.dicName);
                     AddDataToZip.accept(file);
                 }
 
@@ -395,7 +434,7 @@ public class DicRepository
                         new ActivityResultContracts.StartActivityForResult(),
                         result ->
                         {
-                            if(result.getResultCode() == Activity.RESULT_OK
+                            if (result.getResultCode() == Activity.RESULT_OK
                                     && result.getData() != null)
                             {
                                 Uri fileUri = result.getData().getData();
@@ -418,49 +457,72 @@ public class DicRepository
             BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
             ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream);
 
-            
+
             // 기존 데이터 모두 삭제
-            DeleteAllDataFromRootFile();
+            DeleteAllFilesFromRootFile();
 
             byte[] buffer = new byte[4096];
             ZipEntry entry;
             boolean bHasSignature = false;
-            while((entry = zipInputStream.getNextEntry()) != null)
+            while ((entry = zipInputStream.getNextEntry()) != null)
             {
                 String fileName = entry.getName();
-                if(fileName.equals("Dic.sig"))
+                if (fileName.equals("Dic.sig"))
                 {
                     bHasSignature = true;
                     continue;
                 }
-                File file = new File(rootFile, fileName);
+                File file = MakeDicFile(fileName);
 
-                try(FileOutputStream fos = new FileOutputStream(file))
+                try (FileOutputStream fos = new FileOutputStream(file))
                 {
                     int length;
-                    while((length = zipInputStream.read(buffer)) > 0)
+                    while ((length = zipInputStream.read(buffer)) > 0)
                     {
                         fos.write(buffer, 0, length);
                     }
                     fos.flush();
+                } catch (IOException e)
+                {
+                    e.printStackTrace();
                 }
-                catch (IOException e) { e.printStackTrace(); }
 
                 zipInputStream.closeEntry();
             }
 
-            if(bHasSignature == false)
+            if (bHasSignature == false)
             {
                 // Wrong Zip File
-                DeleteAllDataFromRootFile();
+                DeleteAllFilesFromRootFile();
                 return null;
             }
             return Initialize(context);
+        } catch (IOException e)
+        {
+            e.printStackTrace();
         }
-        catch (IOException e) { e.printStackTrace(); }
 
         return LoadAnyData();
     }
 
+
+    private void Debug_ShowAllRootFiles(Context context)
+    {
+        String temp = "";
+        File[] files = rootFile.listFiles();
+        for (File file : files)
+        {
+            temp += file.toString() + "\n";
+        }
+
+        temp += "\nDic\n";
+        files = dicRootFile.listFiles();
+        for(File file : files)
+        {
+            temp += file.toString() + "\n";
+        }
+
+        DebugHelper.Instance().ShowInformInterface(context, temp);
+    }
 }
 

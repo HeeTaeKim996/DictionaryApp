@@ -21,7 +21,7 @@ public class DebugHelper
         return _instance;
     }
 
-    public void ShowInformInterface(Context context, ViewGroup parent, String informString)
+    public void ShowInformInterface(Context context, String informString)
     {
         LogInformBinding logBinding = LogInformBinding.inflate(LayoutInflater.from(context));
         AlertDialog logDialog = new AlertDialog.Builder(context).setView(logBinding.getRoot())

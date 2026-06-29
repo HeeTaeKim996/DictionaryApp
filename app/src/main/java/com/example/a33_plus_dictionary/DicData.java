@@ -4,13 +4,13 @@ import java.util.ArrayList;
 
 public class DicData
 {
-    public String dicName;
+    public DicInfo dicInfo;
     public ArrayList<SPair> data;
     public ArrayList<Integer> shakePos;
 
-    public DicData(String InDicName ,ArrayList<SPair> InData)
+    public DicData(DicInfo InDicInfo ,ArrayList<SPair> InData)
     {
-        dicName = InDicName;
+        dicInfo = InDicInfo;
         if(InData == null)
         {
             data = new ArrayList<SPair>();
