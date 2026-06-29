@@ -5,8 +5,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.example.a33_plus_dictionary.databinding.InformOkCancelBinding;
 import com.example.a33_plus_dictionary.databinding.LogInformBinding;
 import androidx.appcompat.app.AlertDialog;
+
+import java.util.function.Consumer;
+
 public class DebugHelper
 {
     private static DebugHelper _instance = new DebugHelper();
@@ -35,4 +39,24 @@ public class DebugHelper
         });
     }
 
+    public void ShowInformOKInterface(Context context, String informString,
+                                      Consumer<Boolean> okFunction )
+    {
+        InformOkCancelBinding binding = InformOkCancelBinding.inflate(LayoutInflater.from(context));
+        AlertDialog dialog = new AlertDialog.Builder(context)
+                .setView(binding.getRoot()).create();
+        dialog.show();
+
+        binding.textInform.setText(informString);
+        binding.buttonCancel.setOnClickListener(v->
+        {
+            okFunction.accept(false);
+            dialog.dismiss();
+        });
+        binding.buttonOk.setOnClickListener(v->
+        {
+            okFunction.accept(true);
+            dialog.dismiss();
+        });
+    }
 }

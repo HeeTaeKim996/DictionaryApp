@@ -3,6 +3,7 @@ package com.example.a33_plus_dictionary;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
@@ -11,6 +12,7 @@ import android.widget.Button;
 import com.example.a33_plus_dictionary.databinding.DicReposBinding;
 import com.example.a33_plus_dictionary.databinding.MainInterfaceBinding;
 import com.example.a33_plus_dictionary.databinding.OneStringBinding;
+import com.example.a33_plus_dictionary.databinding.OthersBinding;
 import com.example.a33_plus_dictionary.databinding.TwoStringBinding;
 import com.example.a33_plus_dictionary.databinding.WordBinding;
 import com.example.a33_plus_dictionary.databinding.WordLongClickBinding;
@@ -19,6 +21,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.function.Consumer;
 
 public class MainInterface
 {
@@ -54,6 +57,10 @@ public class MainInterface
         {
             OnShowAllButtonClicked(v.getContext());
         });
+        mainBinding.buttonOthers.setOnClickListener(v ->
+        {
+            OnOthersButtonClicked(v.getContext());
+        });
 
         Interface_CleanAndShowAllWords(context);
     }
@@ -76,7 +83,7 @@ public class MainInterface
 
         binding.editTextWord.requestFocus();
         Window window = dialog.getWindow();
-        if(window != null)
+        if (window != null)
         {
             window.setSoftInputMode(
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
@@ -106,7 +113,7 @@ public class MainInterface
         int pos = dicData.shakePos.size();
         dicData.shakePos.add(pos);
 
-        Interface_AddWord(context, pos, sPair);
+        Interface_AddWord(context, pos, sPair, false);
 
         // SaveData
         DicRepository.Instance().SaveDicData(dicData);
@@ -119,19 +126,34 @@ public class MainInterface
         for (int i = 0; i < dicData.data.size(); i++)
         {
             int index = dicData.shakePos.get(i);
-            Interface_AddWord(context, i, dicData.data.get(index));
+            Interface_AddWord(context, i, dicData.data.get(index), false);
         }
     }
 
 
-    private void Interface_AddWord(Context context, int pos, SPair pair)
+    private void Interface_AddWord(Context context, int pos, SPair pair,
+                                   boolean bhideWord)
     {
         WordBinding wordBinding = WordBinding.inflate(LayoutInflater.from(context));
 
         wordBinding.textPos.setText(String.valueOf(pos + 1));
 
+
         wordBinding.textFirst.setText(pair.word);
         wordBinding.textSecond.setText(pair.meaning);
+
+
+        if (bhideWord)
+        {
+            if (isWordHide == false)
+            {
+                wordBinding.textSecond.setVisibility(View.INVISIBLE);
+            } else
+            {
+                wordBinding.textFirst.setVisibility(View.INVISIBLE);
+            }
+        }
+
 
         wordBinding.getRoot().setOnClickListener(v ->
         {
@@ -150,24 +172,21 @@ public class MainInterface
 
     private void SetOnWordClicked(View wordView, WordBinding wordBinding, int pos)
     {
-        if(isWordHide == false)
+        if (isWordHide == false)
         {
-            if (wordBinding.textSecond.getText().equals(""))
+            if (wordBinding.textSecond.getVisibility() == View.INVISIBLE)
             {
-                ShowWord(wordBinding, pos);
-            }
-            else
+                ShowWord(wordBinding);
+            } else
             {
                 HideWord(wordBinding);
             }
-        }
-        else
+        } else
         {
-            if(wordBinding.textFirst.getText().equals(""))
+            if (wordBinding.textFirst.getVisibility() == View.INVISIBLE)
             {
-                ShowWord(wordBinding, pos);
-            }
-            else
+                ShowWord(wordBinding);
+            } else
             {
                 HideWord(wordBinding);
             }
@@ -176,26 +195,23 @@ public class MainInterface
 
     private void HideWord(WordBinding wordBinding)
     {
-        if(isWordHide == false)
+        if (isWordHide == false)
         {
-            wordBinding.textSecond.setText("");
-        }
-        else
+            wordBinding.textSecond.setVisibility(View.INVISIBLE);
+        } else
         {
-            wordBinding.textFirst.setText("");
+            wordBinding.textFirst.setVisibility(View.INVISIBLE);
         }
     }
 
-    private void ShowWord(WordBinding wordBinding, int pos)
+    private void ShowWord(WordBinding wordBinding)
     {
-        SPair pair = dicData.data.get(dicData.shakePos.get(pos));
-        if(isWordHide == false)
+        if (isWordHide == false)
         {
-            wordBinding.textSecond.setText(pair.meaning);
-        }
-        else
+            wordBinding.textSecond.setVisibility(View.VISIBLE);
+        } else
         {
-            wordBinding.textFirst.setText(pair.word);
+            wordBinding.textFirst.setVisibility(View.VISIBLE);
         }
     }
 
@@ -237,7 +253,7 @@ public class MainInterface
         binding.editTextWord.requestFocus();
 
         Window window = dialog.getWindow();
-        if(window != null)
+        if (window != null)
         {
             window.setSoftInputMode(
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
@@ -304,36 +320,12 @@ public class MainInterface
 
         mainBinding.wordsLine.removeAllViews();
         Context context = view.getContext();
-        for(int i = 0; i < dicData.data.size(); i++)
+        for (int i = 0; i < dicData.data.size(); i++)
         {
             int index = dicData.shakePos.get(i);
-            WordBinding wordBinding = WordBinding.inflate(LayoutInflater.from(context));
-
             SPair pair = dicData.data.get(index);
-            wordBinding.textPos.setText(String.valueOf(i + 1));
-            if(isWordHide == false)
-            {
-                wordBinding.textFirst.setText(pair.word);
-                wordBinding.textSecond.setText("");
-            }
-            else
-            {
-                wordBinding.textFirst.setText("");
-                wordBinding.textSecond.setText(pair.meaning);
-            }
 
-            int pos = i;
-            wordBinding.getRoot().setOnClickListener(v->
-            {
-                SetOnWordClicked(v, wordBinding, pos);
-            });
-            wordBinding.getRoot().setOnLongClickListener(v->
-            {
-                SetOnWordLongClicked(v, wordBinding, pos, pair);
-                return true;
-            });
-
-            mainBinding.wordsLine.addView(wordBinding.getRoot());
+            Interface_AddWord(context, i, pair, true);
         }
     }
 
@@ -416,7 +408,7 @@ public class MainInterface
 
         binding.editText.requestFocus();
         Window window = dialog.getWindow();
-        if(window != null)
+        if (window != null)
         {
             window.setSoftInputMode(
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
@@ -531,7 +523,7 @@ public class MainInterface
         binding.editText.setText(dickName);
         binding.editText.requestFocus();
         Window window = dialog.getWindow();
-        if(window != null)
+        if (window != null)
         {
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
         }
@@ -612,8 +604,56 @@ public class MainInterface
             View child = mainBinding.wordsLine.getChildAt(i);
             WordBinding binding = WordBinding.bind(child);
 
-            ShowWord(binding, i);
+            ShowWord(binding);
         }
     }
 
+
+    private void OnOthersButtonClicked(Context context)
+    {
+        OthersBinding binding = OthersBinding.inflate(LayoutInflater.from(context));
+        AlertDialog dialog = new AlertDialog.Builder(context)
+                .setView(binding.getRoot()).create();
+        dialog.show();
+
+        binding.buttonExit.setOnClickListener(v ->
+        {
+            dialog.dismiss();
+        });
+        binding.buttonExportZip.setOnClickListener(v ->
+        {
+            DicRepository.Instance().ExportDataToZip(context);
+            dialog.dismiss();
+        });
+        binding.buttonImportZip.setOnClickListener(v ->
+        {
+            Consumer<Boolean> consumer = (Boolean b) ->
+            {
+                if (b)
+                {
+                    Consumer<DicData> onImportFromZipCompleted = (DicData newDic) ->
+                    {
+                        if(newDic == null)
+                        {
+                            DebugHelper.Instance().ShowInformInterface(context, null,
+                                    "데이터를 불러오는 데 실패했습니다.\n올바른 Zip 파일인지"
+                            + " 확인 바랍니다.");
+                            return;
+                        }
+                        dicData = newDic;
+                        Interface_CleanAndShowAllWords(context);
+                        mainBinding.textViewDicName.setText(dicData.dicName);
+                    };
+
+                    DicRepository.Instance().ImportFromZip(context, onImportFromZipCompleted);
+                }
+            };
+
+            DebugHelper.Instance().ShowInformOKInterface(context,
+                    "실행시 기존 데이터가 모두 삭제되고,\n zip 에서 추출한 데이터로 모두 대체됩니다"
+                + "\n진행하겠습니까?", consumer);
+
+            dialog.dismiss();
+        });
+    }
 }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <!-- 모든 색상을 지정 -->
+        <shape android:shape = "rectangle">
+            <!-- #NN'NN'NN 은 R-G-B 의 Hex 6자리 표현. #FF0000 은 빨강, #00FF00 은 초록 -->
+            <solid android:color = "#999999" />
+        </shape>
+    </item>
+
+    <!-- bottom 의 1dp 를 제외한, 모든 색상을 지정 -->
+    <item android:bottom = "1dp">
+        <shape android:shape = "rectangle">
+            <solid android:color = "#FFFFFF"/>
+        </shape>
+    </item>
+
+</layer-list>
