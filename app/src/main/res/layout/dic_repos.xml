@@ -14,7 +14,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="추가" />
+            android:text="dic 추가" />
 
         <Space
             android:layout_width="40dp"
@@ -31,6 +31,23 @@
 
     <Space
         android:layout_width="wrap_content"
+        android:layout_height="30dp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/button_item"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="All" />
+    </LinearLayout>
+
+    <Space
+        android:layout_width="match_parent"
         android:layout_height="30dp" />
 
     <ScrollView

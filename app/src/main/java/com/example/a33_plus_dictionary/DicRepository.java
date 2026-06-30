@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -38,14 +40,20 @@ public class DicRepository
 
 
     private File rootFile;
+    private File metRootFile;
     private File dicRootFile;
 
     private CacheInfo cacheInfo;
     private File cacheFile;
 
+    File initFile;
+    File itemFile;
 
     private ArrayList<DicInfo> dicInfos;
+    private TreeSet<String> items;
+    private HashMap<String, ArrayList<DicInfo>> mappedInfos;
 
+    private String currItem = "All";
 
     public static DicRepository Instance()
     {
@@ -55,21 +63,30 @@ public class DicRepository
     public DicData Initialize(Context context)
     {
         rootFile = context.getFilesDir();
+        metRootFile = new File(rootFile, "met");
         dicRootFile = new File(rootFile, "dic");
-        File iniFile = new File(rootFile, "Init.ini");
+        initFile = new File(rootFile, "Init.ini");
+        itemFile = new File(rootFile, "Item.dat");
 
         if (dicRootFile.exists() == false)
         {
             dicRootFile.mkdir();
         }
+        if (metRootFile.exists() == false)
+        {
+            metRootFile.mkdir();
+        }
 
         dicInfos = new ArrayList<DicInfo>();
 
+        items = new TreeSet<String>();
+        items.add("None");
 
+        mappedInfos = new HashMap<String, ArrayList<DicInfo>>();
 
 //        DeleteAllFilesFromRootFile();
 
-        InitializeData_v_1_1();
+        InitializeData();
 
 //        Debug_ShowAllRootFiles(context);
 
@@ -104,37 +121,116 @@ public class DicRepository
     }
 
 
-    private void InitializeData_v_1_1()
+    private void InitializeData()
     {
-        InitializeDicInfos_v_1_1();
-        InitializeCache_1_1();
+        LoadInitData();
+        LoadItemData();
+        InitializeDicInfos();
+        InitializeCache();
+    }
+
+    private void SaveInitData()
+    {
+        try(DataOutputStream dos = new DataOutputStream(new FileOutputStream(initFile)))
+        {
+            dos.writeInt(AppConfig.GetVersionByInt());
+
+
+        }
+        catch(IOException e) { e.printStackTrace(); }
+    }
+
+    private void LoadInitData()
+    {
+        try(DataInputStream dis = new DataInputStream(new FileInputStream(initFile)))
+        {
+            int version = dis.readInt();
+
+
+        }
+        catch(IOException e) { e.printStackTrace(); }
     }
 
 
-    private void InitializeDicInfos_v_1_1()
+
+
+    private void SaveItemData()
     {
-        File[] tempFiles = dicRootFile.listFiles();
-        if (tempFiles != null)
+        try(DataOutputStream dos = new DataOutputStream(new FileOutputStream(itemFile)))
         {
-            for (File file : tempFiles)
+            dos.writeInt(AppConfig.GetVersionByInt());
+
+            ArrayList<String> itemString = GetItems();
+            dos.writeInt(itemString.size());
+
+            for(String s : itemString)
             {
-                if (file.isFile())
+                dos.writeUTF(s);
+            }
+        }
+        catch (IOException e) { e.printStackTrace(); }
+    }
+    private  void LoadItemData()
+    {
+        items.clear();
+        items.add("None");
+
+        try(DataInputStream dis = new DataInputStream(new FileInputStream(itemFile)))
+        {
+            int version = dis.readInt();
+
+            int size = dis.readInt();
+            while(size-- > 0)
+            {
+                String item = dis.readUTF();
+                items.add(item);
+                if(mappedInfos.containsKey(item) == false)
                 {
-                    String fileName = file.getName();
-                    if (fileName.endsWith(".dic"))
+                    mappedInfos.put(item, new ArrayList<DicInfo>());
+                }
+
+            }
+        }
+        catch(IOException e) { e.printStackTrace(); }
+    }
+
+
+
+    private void InitializeDicInfos()
+    {
+        File[] metFiles = metRootFile.listFiles();
+        if (metFiles != null)
+        {
+            for (File metFile : metFiles)
+            {
+                if (metFile.isFile())
+                {
+                    String fileName = metFile.getName();
+                    if (fileName.endsWith(".met"))
                     {
                         fileName = fileName.substring(0, fileName.length() - 4);
                         DicInfo dicInfo = new DicInfo();
                         dicInfo.dicName = fileName;
 
-                        dicInfos.add(dicInfo);
+                        try (DataInputStream dis = new DataInputStream(new FileInputStream(metFile)))
+                        {
+                            int version = dis.readInt();
+                            dicInfo.item = dis.readUTF();
+                            dicInfo.aimDate = dis.readInt();
+
+                        } catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+
+                        AddInfo(dicInfo);
                     }
                 }
             }
         }
     }
 
-    private void InitializeCache_1_1()
+    private void InitializeCache()
     {
         cacheInfo = new CacheInfo();
         cacheFile = new File(rootFile, "cache.cac");
@@ -155,21 +251,74 @@ public class DicRepository
     }
 
 
-    // Temp
     public ArrayList<DicInfo> GetDicInfos()
     {
-        return dicInfos;
+        if(currItem == "All")
+        {
+            return dicInfos;
+        }
+
+        if(mappedInfos.containsKey(currItem) == false)
+        {
+            // Should not happen. mappedInfos Must Have currItem
+            android.os.Debug.waitForDebugger();
+            return null;
+        }
+
+
+        return mappedInfos.get(currItem);
+    }
+
+    public void ChangeCurrItem(String item)
+    {
+        currItem = item;
+    }
+
+
+
+    public void ChangeItem(DicInfo dicInfo, String newItem)
+    {
+        items.add(newItem);
+
+        ArrayList<DicInfo> itemInfos = mappedInfos.get(dicInfo.item);
+        itemInfos.remove(dicInfo);
+
+        if (mappedInfos.containsKey(newItem) == false)
+        {
+            mappedInfos.put(newItem, new ArrayList<DicInfo>());
+        }
+        mappedInfos.get(newItem).add(dicInfo);
+
+        dicInfo.item = newItem;
+
+        SaveMetaData(dicInfo);
+    }
+
+    private void SaveMetaData(DicInfo dicInfo)
+    {
+        File metFile = MakeMetFile(dicInfo.dicName);
+
+        try (DataOutputStream dos = new DataOutputStream(new FileOutputStream(metFile)))
+        {
+            dos.writeInt(AppConfig.GetVersionByInt());
+
+            dos.writeUTF(dicInfo.item);
+            dos.writeInt(dicInfo.aimDate);
+
+            dos.flush();
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 
 
     public void UpdateDicData(DicData dicData)
     {
-        DicInfo dicInfo = dicData.dicInfo;
-        SaveDicData_v_1_1(dicInfo, dicData.data);
+        SaveDicData(dicData.dicInfo, dicData.data);
     }
 
-    // V_1_1
-    private void SaveDicData_v_1_1(DicInfo dicInfo, ArrayList<SPair> pairs)
+    private void SaveDicData(DicInfo dicInfo, ArrayList<SPair> pairs)
     {
         File savedFile = MakeDicFile(dicInfo.dicName);
 
@@ -185,20 +334,26 @@ public class DicRepository
             }
 
             dos.flush();
-
-
         } catch (IOException e)
         {
             e.printStackTrace();
         }
     }
 
+
+
     private File MakeDicFile(String dicName)
     {
         return new File(dicRootFile, dicName + ".dic");
     }
 
-    public DicData TryToMakeNewDicData(String newDicName)
+    private File MakeMetFile(String dicName)
+    {
+        return new File(metRootFile, dicName + ".met");
+    }
+
+
+    public DicData MakeNewDic(String newDicName, String item)
     {
         for (DicInfo dicInfo : dicInfos)
         {
@@ -208,16 +363,41 @@ public class DicRepository
             }
         }
 
-        File file = MakeDicFile((newDicName));
         DicInfo newInfo = new DicInfo();
         newInfo.dicName = newDicName;
+        newInfo.item = item;
 
         DicData newData = new DicData(newInfo, null);
 
-        dicInfos.add(newInfo);
-        SaveDicData_v_1_1(newInfo, newData.data);
+        AddInfo(newInfo);
+
+        SaveMetaData(newInfo);
+        SaveDicData(newInfo, newData.data);
 
         return newData;
+    }
+
+    private void AddInfo(DicInfo dicInfo)
+    {
+        dicInfos.add(dicInfo);
+
+        items.add(dicInfo.item);
+
+        if (mappedInfos.containsKey(dicInfo.item) == false)
+        {
+            mappedInfos.put(dicInfo.item, new ArrayList<DicInfo>());
+        }
+        mappedInfos.get(dicInfo.item).add(dicInfo);
+    }
+
+    private boolean DeleteInfo(DicInfo dicInfo)
+    {
+        if (dicInfos.remove(dicInfo) == false) return false;
+
+        ArrayList<DicInfo> itemInfos = mappedInfos.get(dicInfo.item);
+        itemInfos.remove(dicInfo);
+
+        return true;
     }
 
 
@@ -229,7 +409,7 @@ public class DicRepository
             int version = dis.readInt();
             if (version == 11)
             {
-                return LoadData_1_1__(dicInfo, dis);
+                return LoadData(dicInfo, dis);
             }
         } catch (IOException e)
         {
@@ -239,7 +419,7 @@ public class DicRepository
         return null;
     }
 
-    public DicData LoadData_1_1__(DicInfo dicInfo, DataInputStream dis)
+    public DicData LoadData(DicInfo dicInfo, DataInputStream dis)
     {
         try
         {
@@ -276,38 +456,56 @@ public class DicRepository
             }
         }
 
-//        allFiles = dicRootFile.listFiles();
-//        if (allFiles != null)
-//        {
-//            for (File file : allFiles)
-//            {
-//                file.delete();
-//
-//            }
-//        }
+
+        allFiles = metRootFile.listFiles();
+        if (allFiles != null)
+        {
+            for (File file : allFiles)
+            {
+                file.delete();
+            }
+        }
+
+        allFiles = dicRootFile.listFiles();
+        if (allFiles != null)
+        {
+            for (File file : allFiles)
+            {
+                file.delete();
+
+            }
+        }
 
         dicInfos.clear();
+        mappedInfos.clear();
+
+        items.clear();
+        items.add("None");
+
         cacheInfo = new CacheInfo();
     }
 
     public boolean DeleteDic(DicInfo dicInfo)
     {
-        for (int i = 0; i < dicInfos.size(); i++)
+        if (DeleteInfo(dicInfo) == false)
         {
-            if (dicInfos.get(i).equals(dicInfo))
-            {
-                File deletedFile = MakeDicFile(dicInfo.dicName);
-                if (deletedFile.exists())
-                {
-                    deletedFile.delete();
-                    dicInfos.remove(i);
-                    return true;
-                }
-
-                return false;
-            }
+            return false;
         }
-        return false;
+
+        File deletedFile = MakeMetFile(dicInfo.dicName);
+        if (deletedFile.exists())
+        {
+            deletedFile.delete();
+        }
+
+        deletedFile = MakeDicFile(dicInfo.dicName);
+        if (deletedFile.exists())
+        {
+            deletedFile.delete();
+
+        }
+
+        return true;
     }
 
     public boolean ChangeDicName(DicInfo changingInfo, String toName)
@@ -353,6 +551,87 @@ public class DicRepository
     }
 
 
+    public ArrayList<String> GetItems()
+    {
+        return new ArrayList<String>(items);
+    }
+
+    public void AddItem(String newItem)
+    {
+        if(items.add(newItem))
+        {
+            SaveItemData();
+        }
+    }
+
+    public String GetCurrItem()
+    {
+        if(items.contains(currItem) == false)
+        {
+            currItem = "All";
+        }
+
+        return currItem;
+    }
+
+    public boolean ChangeItemName(String fromName, String toName)
+    {
+        if(toName.equals("All"))    return false;
+        if(items.contains(toName))  return false;
+
+        ArrayList<DicInfo> itemInfos = mappedInfos.get(fromName);
+        for(DicInfo dicInfo : itemInfos)
+        {
+            dicInfo.item = toName;
+            SaveMetaData(dicInfo);
+        }
+
+        items.add(toName);
+        mappedInfos.put(toName, itemInfos);
+
+        items.remove(fromName);
+        mappedInfos.remove(fromName);
+
+        SaveItemData();
+
+        return true;
+    }
+
+    public void DeleteItem(String deletedName)
+    {
+        ArrayList<DicInfo> itemInfos = mappedInfos.get(deletedName);
+        for(DicInfo dicInfo : itemInfos)
+        {
+            dicInfo.item = "None";
+            SaveMetaData(dicInfo);
+        }
+
+        if(mappedInfos.containsKey("None") == false)
+        {
+            // Should not happen. mappedInfos Must Have None Item
+            android.os.Debug.waitForDebugger();
+        }
+        ArrayList<DicInfo> nonInfo = mappedInfos.get("None");
+        nonInfo.addAll(itemInfos);
+
+        items.remove(deletedName);
+        mappedInfos.remove(deletedName);
+
+        SaveItemData();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
     public void ExportDataToZip(Context context)
     {
         ContentValues values = new ContentValues();
@@ -366,7 +645,7 @@ public class DicRepository
 
         if (uri == null) return;
 
-        InitializeDicInfos_v_1_1();
+        InitializeDicInfos();
 
         try (OutputStream targetOutputStream = resolver.openOutputStream(uri);)
         {
@@ -515,9 +794,16 @@ public class DicRepository
             temp += file.toString() + "\n";
         }
 
+        temp += "\nMet\n";
+        files = metRootFile.listFiles();
+        for (File file : files)
+        {
+            temp += file.toString() + "\n";
+        }
+
         temp += "\nDic\n";
         files = dicRootFile.listFiles();
-        for(File file : files)
+        for (File file : files)
         {
             temp += file.toString() + "\n";
         }

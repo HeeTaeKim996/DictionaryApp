@@ -4,27 +4,30 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <Button
-        android:id="@+id/button_export_zip"
-        android:layout_width="wrap_content"
+    <EditText
+        android:id="@+id/edit_text"
+        android:layout_width="221dp"
         android:layout_height="wrap_content"
-        android:text="Zip으로 데이터 압축" />
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="Name"
+        android:textSize="16sp" />
 
     <Button
-        android:id="@+id/button_import_zip"
+        android:id="@+id/button_edit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="ZIP으로 데이터 생성" />
+        android:text="아이템명 수정" />
 
     <Button
-        android:id="@+id/button_edit_item"
+        android:id="@+id/button_delete"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Items수정" />
+        android:text="삭제" />
 
     <Button
-        android:id="@+id/button_exit"
-        android:layout_width="wrap_content"
+        android:id="@+id/button_cancel"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="취소" />
 </LinearLayout>

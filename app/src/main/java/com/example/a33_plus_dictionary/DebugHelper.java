@@ -4,11 +4,15 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 
 import com.example.a33_plus_dictionary.databinding.InformOkCancelBinding;
 import com.example.a33_plus_dictionary.databinding.LogInformBinding;
+import com.example.a33_plus_dictionary.databinding.VerticalButtonsBinding;
+
 import androidx.appcompat.app.AlertDialog;
 
+import java.util.ArrayList;
 import java.util.function.Consumer;
 
 public class DebugHelper
@@ -59,4 +63,7 @@ public class DebugHelper
             dialog.dismiss();
         });
     }
+
+
+
 }

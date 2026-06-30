@@ -40,15 +40,23 @@
 
         <Space
             android:layout_width="40dp"
-            android:layout_height="20dp" />
+            android:layout_height="match_parent" />
 
         <TextView
             android:id="@+id/textView_dic_name"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:layout_weight="15"
             android:text="제목"
             android:textAppearance="@style/TextAppearance.AppCompat.Large" />
+
+        <Button
+            android:id="@+id/button_item"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="Item" />
+
     </LinearLayout>
 
     <LinearLayout
