@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 
 import com.example.a33_plus_dictionary.databinding.DicReposBinding;
+import com.example.a33_plus_dictionary.databinding.DicReposDicInfoBinding;
 import com.example.a33_plus_dictionary.databinding.DicReposeAddDicBinding;
 import com.example.a33_plus_dictionary.databinding.MainInterfaceBinding;
 import com.example.a33_plus_dictionary.databinding.OneStringBinding;
@@ -421,20 +422,40 @@ public class MainInterface
         ArrayList<DicInfo> dicInfos = DicRepository.Instance().GetDicInfos();
         for (DicInfo dicInfo : dicInfos)
         {
-            Button dicButton = new Button(context);
-            dicButton.setAllCaps(false);
-            dicButton.setText(dicInfo.dicName);
-            dicButton.setOnClickListener(v ->
+            DicReposDicInfoBinding binding = DicReposDicInfoBinding
+                    .inflate(LayoutInflater.from(context));
+            AlertDialog dialog = new AlertDialog.Builder(context)
+                    .setView(binding.getRoot()).create();
+            binding.textDicname.setText(dicInfo.dicName);
+            binding.textItemname.setText(dicInfo.item);
+            binding.getRoot().setOnClickListener(v->
             {
                 ChangeDic(v, dicInfo);
                 dicReposDialog.dismiss();
             });
-            dicReposBinding.dicNames.addView(dicButton);
-            dicButton.setOnLongClickListener(v ->
+            binding.getRoot().setOnLongClickListener(v->
             {
                 OnDicLongClicked(v, dicInfo, dicReposDialog);
                 return true;
             });
+            dicReposBinding.dicNames.addView(binding.getRoot());
+
+//            Button dicButton = new Button(context);
+//            dicButton.setAllCaps(false);
+//            dicButton.setText(dicInfo.dicName);
+//            dicButton.setOnClickListener(v ->
+//            {
+//                ChangeDic(v, dicInfo);
+//                dicReposDialog.dismiss();
+//            });
+//            dicReposBinding.dicNames.addView(dicButton);
+//            dicButton.setOnLongClickListener(v ->
+//            {
+//                OnDicLongClicked(v, dicInfo, dicReposDialog);
+//                return true;
+//            });
+
+
 
         }
     }
@@ -765,10 +786,12 @@ public class MainInterface
             );
             button.setLayoutParams(params);
             button.setText(itemName);
-            button.setOnLongClickListener(v->
+            button.setOnClickListener(v->
             {
-                OnItemButtonLongedClicked(context, itemName, binding, dialog);
-                return true;
+                if(itemName.equals("None") == false)
+                {
+                    OnEditingItemButtonClicked(context, itemName, binding, dialog);
+                }
             });
 
             binding.layoutButtons.addView(button);
@@ -801,9 +824,9 @@ public class MainInterface
         });
     }
 
-    private void OnItemButtonLongedClicked(Context context, String itemName,
-                                         VerticalButtonsBinding parentBinding,
-                                         AlertDialog parentDialog)
+    private void OnEditingItemButtonClicked(Context context, String itemName,
+                                            VerticalButtonsBinding parentBinding,
+                                            AlertDialog parentDialog)
     {
         OthersItemReviseBinding binding = OthersItemReviseBinding
                 .inflate(LayoutInflater.from(context));

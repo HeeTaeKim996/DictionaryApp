@@ -18,5 +18,7 @@ public class MainActivity extends AppCompatActivity
         mainInterface = new MainInterface();
         mainInterface.Initialize(this);
         setContentView(mainInterface.GetRootView());
+
+        Calander.Instance().TempTest(this);
     }
 }

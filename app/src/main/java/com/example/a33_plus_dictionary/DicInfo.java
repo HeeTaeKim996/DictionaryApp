@@ -5,4 +5,5 @@ public class DicInfo
     String dicName;
     String item = "None";
     int aimDate = Integer.MAX_VALUE;
+    byte aimIndex = Byte.MAX_VALUE;
 }
