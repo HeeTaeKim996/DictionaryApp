@@ -829,6 +829,20 @@ public class MainInterface
                 .setView(binding.getRoot()).create();
         dialog.show();
 
+        binding.editText.requestFocus();
+//        InputMethodManager imm = (InputMethodManager)
+//                context.getSystemService(Context.INPUT_METHOD_SERVICE);
+//        if(imm != null)
+//        {
+//            imm.showSoftInput(binding.editText, InputMethodManager.SHOW_IMPLICIT);
+//        }
+        if(dialog.getWindow() != null)
+        {
+            dialog.getWindow().setSoftInputMode(
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+
+
         binding.buttonCancel.setOnClickListener(v->{ dialog.dismiss();});
         binding.buttonOk.setOnClickListener(v->
         {
@@ -1114,7 +1128,6 @@ public class MainInterface
             dicInfo.aimIndex = Byte.MAX_VALUE;
 
             DicRepository.Instance().UpdateMetaData(dicInfo);
-
             UpdateInterfaces.run();
         });
 
@@ -1127,6 +1140,7 @@ public class MainInterface
             {
                 if(OnEditTextSetByNumberEntered(context, v.getText().toString()))
                 {
+                    DicRepository.Instance().UpdateMetaData(dicInfo);
                     UpdateInterfaces.run();
                 }
 

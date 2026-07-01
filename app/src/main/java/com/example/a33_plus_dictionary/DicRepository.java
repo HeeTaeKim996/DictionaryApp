@@ -87,10 +87,9 @@ public class DicRepository
 
 //        DeleteAllFilesFromRootFile();
 
-
         InitializeData();
 
-        Debug_ShowAllRootFiles(context);
+//        Debug_ShowAllRootFiles(context);
 
         return LoadAnyData();
     }
@@ -266,9 +265,7 @@ public class DicRepository
 
         if(mappedInfos.containsKey(cacheInfo.currItem) == false)
         {
-            // Should not happen. mappedInfos Must Have currItem
-            android.os.Debug.waitForDebugger();
-            return null;
+            mappedInfos.put(cacheInfo.currItem, new ArrayList<DicInfo>());
         }
 
 
@@ -579,6 +576,11 @@ public class DicRepository
     {
         if(items.add(newItem))
         {
+            if(mappedInfos.containsKey(newItem) == false)
+            {
+                mappedInfos.put(newItem, new ArrayList<DicInfo>());
+            }
+
             SaveItemData();
         }
     }
