@@ -776,6 +776,11 @@ public class MainInterface
             OnOthers_EditItemtsButtonClicked(context);
             dialog.dismiss();
         });
+        binding.buttonExportTextFilesLog.setOnClickListener(v->
+        {
+            DicRepository.Instance().Debug_PrintAllFilesToLog(context);
+            dialog.dismiss();
+        });
 
     }
 

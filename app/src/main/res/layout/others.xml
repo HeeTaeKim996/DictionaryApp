@@ -6,7 +6,7 @@
 
     <Button
         android:id="@+id/button_export_zip"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Zip으로 데이터 압축" />
 
@@ -23,8 +23,14 @@
         android:text="Items수정" />
 
     <Button
-        android:id="@+id/button_exit"
+        android:id="@+id/button_export_text_files_log"
         android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="텍스트로 파일 로그 출력" />
+
+    <Button
+        android:id="@+id/button_exit"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="취소" />
 </LinearLayout>

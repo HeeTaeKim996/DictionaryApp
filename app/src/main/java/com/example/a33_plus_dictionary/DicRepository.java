@@ -23,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.TreeSet;
@@ -47,8 +48,8 @@ public class DicRepository
     private CacheInfo cacheInfo;
     private File cacheFile;
 
-    File initFile;
-    File itemFile;
+    private File initFile;
+    private File itemFile;
 
     private ArrayList<DicInfo> dicInfos;
     private TreeSet<String> items;
@@ -63,9 +64,9 @@ public class DicRepository
     public DicData Initialize(Context context)
     {
         rootFile = context.getFilesDir();
+        initFile = new File(rootFile, "Init.ini");
         metRootFile = new File(rootFile, "met");
         dicRootFile = new File(rootFile, "dic");
-        initFile = new File(rootFile, "Init.ini");
         itemFile = new File(rootFile, "Item.dat");
 
         if (dicRootFile.exists() == false)
@@ -89,7 +90,7 @@ public class DicRepository
 
         InitializeData();
 
-//        Debug_ShowAllRootFiles(context);
+//        Debug_ShowAllFilesToLog(context);
 
         return LoadAnyData();
     }
@@ -524,20 +525,26 @@ public class DicRepository
         {
             if (dicInfo.equals(changingInfo))
             {
-                File fromFile = MakeDicFile(dicInfo.dicName);
+                String beforeName = dicInfo.dicName;
+
+                File fromFile = MakeMetFile(beforeName);
+                File toFile;
+                if(fromFile.exists())
+                {
+                    toFile = MakeMetFile(toName);
+                    fromFile.renameTo(toFile);
+                }
+
+                fromFile = MakeDicFile(beforeName);
                 if (fromFile.exists())
                 {
-                    File toFile = MakeDicFile(toName);
-
-                    if (fromFile.renameTo(toFile))
-                    {
-                        dicInfo.dicName = toName;
-                        return true;
-                    } else
-                    {
-                        return false;
-                    }
+                    toFile = MakeDicFile(toName);
+                    fromFile.renameTo(toFile);
                 }
+
+                dicInfo.dicName = toName;
+                UpdateMetaData(dicInfo);
+                return true;
             }
         }
 
@@ -652,7 +659,6 @@ public class DicRepository
 
 
 
-
     public void ExportDataToZip(Context context)
     {
         ContentValues values = new ContentValues();
@@ -664,53 +670,83 @@ public class DicRepository
         ContentResolver resolver = context.getContentResolver();
         Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
 
+
         if (uri == null) return;
 
-        InitializeDicInfos();
-
+        // 굳이 갱신할 필요는 없지만, 혹시 모르니 갱신
+        SaveInitData();
+        SaveItemData();
+        for(DicInfo dicInfo : dicInfos)
+        {
+            SaveMetaData(dicInfo);
+        }
+        // DicData 는 여기서 따로 갱신하지 않음
+        
         try (OutputStream targetOutputStream = resolver.openOutputStream(uri);)
         {
             try (ZipOutputStream zos = new ZipOutputStream(targetOutputStream))
             {
-                ZipEntry sigEntry = new ZipEntry("Dic.sig");
-                zos.putNextEntry(sigEntry);
+                ZipEntry firstEntry = new ZipEntry("THIS_IS_DIC_APP_ZIP.sig");
+                zos.putNextEntry(firstEntry);
+
+                byte[] sizeBuffer = new byte[4];
+                int infoSize = dicInfos.size();
+                sizeBuffer[0] = (byte) (infoSize >> 0);
+                sizeBuffer[1] = (byte) (infoSize >> 8);
+                sizeBuffer[2] = (byte) (infoSize >> 16);
+                sizeBuffer[3] = (byte) (infoSize >> 24);
+                // Followed Little endian. But Dont care whether big or little
+                zos.write(sizeBuffer, 0, 4);
+
+//                new DataOutputStream(zos).writeInt(dicInfos.size());
                 zos.closeEntry();
 
                 byte[] buffer = new byte[4096];
                 Consumer<File> AddDataToZip = (File file) ->
                 {
-                    if (file.exists() == false) return;
+                    if(file.exists() == false) return;
 
-                    ZipEntry zipEntry = new ZipEntry(file.getName());
+                    ZipEntry zipEntry;
+
+                    zipEntry = new ZipEntry(file.getName());
+
+
                     try
                     {
                         zos.putNextEntry(zipEntry);
 
-                        try (FileInputStream fis = new FileInputStream(file))
+                        try(FileInputStream fis = new FileInputStream(file))
                         {
                             int length;
-                            while ((length = fis.read(buffer)) > 0)
+                            while((length = fis.read(buffer)) > 0)
                             {
-                                // ((1) 버퍼의 (2) 오프셋부터, (3) 길이만큼의 (1) 버퍼 데이터를 zos에 write
                                 zos.write(buffer, 0, length);
                             }
-                        } catch (IOException e)
-                        {
-                            e.printStackTrace();
                         }
+
                         zos.closeEntry();
-                    } catch (IOException e)
+                    }
+                    catch (IOException e)
                     {
                         e.printStackTrace();
                     }
                 };
+                AddDataToZip.accept(initFile);
+                AddDataToZip.accept(itemFile);
+                AddDataToZip.accept(cacheFile);
 
-                for (DicInfo dicInfo : dicInfos)
+                File[] files = metRootFile.listFiles();
+                for(File file : files)
                 {
-                    String dicName = dicInfo.dicName;
-                    File file = MakeDicFile(dicInfo.dicName);
                     AddDataToZip.accept(file);
                 }
+
+                files = dicRootFile.listFiles();
+                for(File file : files)
+                {
+                    AddDataToZip.accept(file);
+                }
+
 
                 zos.flush();
             } catch (IOException e)
@@ -738,7 +774,15 @@ public class DicRepository
                                     && result.getData() != null)
                             {
                                 Uri fileUri = result.getData().getData();
-                                callback.accept(ImportFromZip_ReadCode(context, fileUri));
+                                boolean bSucceed = ImportFromZip_ReadCode(context, fileUri);
+                                if(bSucceed)
+                                {
+                                    callback.accept(Initialize(context));
+                                }
+                                else
+                                {
+                                    callback.accept(null);
+                                }
                             }
                         });
 
@@ -749,7 +793,7 @@ public class DicRepository
         filePickerLauncher.launch(intent);
     }
 
-    private DicData ImportFromZip_ReadCode(Context context, Uri uri)
+    private boolean ImportFromZip_ReadCode(Context context, Uri uri)
     {
         try
         {
@@ -757,79 +801,143 @@ public class DicRepository
             BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
             ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream);
 
+            byte[] buffer = new byte[4096];
+            ZipEntry zipEntry;
 
-            // 기존 데이터 모두 삭제
+
+
+
+            zipEntry = zipInputStream.getNextEntry();
+
+            // Check whether This Zip is From this app
+            if(zipEntry.getName().equals("THIS_IS_DIC_APP_ZIP.sig") == false) return false;
+
+            byte[] sizeBuffer = new byte[4];
+            zipInputStream.read(sizeBuffer);
+
+
+            int infosCount = (sizeBuffer[0] & 0xFF);
+            infosCount |= ((sizeBuffer[1] & 0xFF) << 8);
+            infosCount |= ((sizeBuffer[2] & 0xFF) << 16);
+            infosCount |= ((sizeBuffer[3] &0xFF) << 24);
+            // Must Use &0xFF. if not, bit Extension includes sign extension. (Ex 10 -> 1111110)
+
+//            int infosCount = new DataInputStream(zipInputStream).readInt();
+            zipInputStream.closeEntry();
+
+
             DeleteAllFilesFromRootFile();
 
-            byte[] buffer = new byte[4096];
-            ZipEntry entry;
-            boolean bHasSignature = false;
-            while ((entry = zipInputStream.getNextEntry()) != null)
+            Consumer<File> LoadData = (File inFile) ->
             {
-                String fileName = entry.getName();
-                if (fileName.equals("Dic.sig"))
-                {
-                    bHasSignature = true;
-                    continue;
-                }
-                File file = MakeDicFile(fileName);
-
-                try (FileOutputStream fos = new FileOutputStream(file))
+                try(FileOutputStream fos = new FileOutputStream(inFile))
                 {
                     int length;
-                    while ((length = zipInputStream.read(buffer)) > 0)
+                    while((length = zipInputStream.read(buffer)) > 0)
                     {
                         fos.write(buffer, 0, length);
                     }
                     fos.flush();
-                } catch (IOException e)
+
+                    zipInputStream.closeEntry();
+                }
+                catch(IOException e)
                 {
                     e.printStackTrace();
                 }
+            };
 
-                zipInputStream.closeEntry();
-            }
+            zipEntry = zipInputStream.getNextEntry();
+            LoadData.accept(initFile);
 
-            if (bHasSignature == false)
+            zipEntry = zipInputStream.getNextEntry();
+            LoadData.accept(itemFile);
+
+            zipEntry = zipInputStream.getNextEntry();
+            LoadData.accept(cacheFile);
+
+            while(infosCount-- > 0)
             {
-                // Wrong Zip File
-                DeleteAllFilesFromRootFile();
-                return null;
+                zipEntry = zipInputStream.getNextEntry();
+                File file = new File(metRootFile, zipEntry.getName());
+                // YOU MUST NOT USE MakeMetFile. zipEntry.getName() alrady has .met
+                LoadData.accept(file);
             }
-            return Initialize(context);
+
+            // rest is Must be Dic
+            while((zipEntry = zipInputStream.getNextEntry()) != null)
+            {
+                File file = new File(dicRootFile, zipEntry.getName());
+                // SAME. YOU MUST NOT USE MakeDicFile
+                LoadData.accept(file);
+            }
+
         } catch (IOException e)
         {
             e.printStackTrace();
         }
 
-        return LoadAnyData();
+        return true;
     }
 
 
-    private void Debug_ShowAllRootFiles(Context context)
+
+    private String GatherAllFiles()
     {
-        String temp = ".\nLOG\n\n";
-        File[] files = rootFile.listFiles();
-        for (File file : files)
-        {
-            temp += file.toString() + "\n";
-        }
+        StringBuilder ret = new StringBuilder(".\n\n\nALL FILES\n\n\n");
 
-        temp += "\nMet\n";
-        files = metRootFile.listFiles();
-        for (File file : files)
-        {
-            temp += file.toString() + "\n";
-        }
+        ListAllFiles(ret, "", rootFile);
 
-        temp += "\nDic\n";
-        files = dicRootFile.listFiles();
-        for (File file : files)
+        return ret.toString();
+    }
+    private void ListAllFiles(StringBuilder ret, String parent, File dir)
+    {
+        String me = parent + "/" + dir.getName();
+        ret.append(me + "\n");
+        File[] files = dir.listFiles();
+        for(File file : files)
         {
-            temp += file.toString() + "\n";
+            if(file.isFile() == false)
+            {
+                ListAllFiles(ret, me, file);
+            }
+            else
+            {
+                ret.append(me + "/" + file.getName() + "\n");
+            }
         }
+    }
 
-        Log.d("ShowRootFiles", temp);
+
+    private void Debug_ShowAllFilesToLog(Context context)
+    {
+        String log = GatherAllFiles().toString();
+        Log.d("GetAllFiles", log);
+    }
+
+    public void Debug_PrintAllFilesToLog(Context context)
+    {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DISPLAY_NAME, "Dictionary_Files_Log.txt");
+        values.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
+        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+        ContentResolver resolver = context.getContentResolver();
+        Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+
+        if(uri == null) return;
+
+        String str = GatherAllFiles().toString();
+        try(OutputStream os = resolver.openOutputStream(uri))
+        {
+            byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
+            os.write(bytes);
+            os.flush();
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 }
 
