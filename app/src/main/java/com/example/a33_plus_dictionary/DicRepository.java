@@ -54,7 +54,6 @@ public class DicRepository
     private TreeSet<String> items;
     private HashMap<String, ArrayList<DicInfo>> mappedInfos;
 
-    private String currItem = "All";
 
     public static DicRepository Instance()
     {
@@ -91,7 +90,7 @@ public class DicRepository
 
         InitializeData();
 
-//        Debug_ShowAllRootFiles(context);
+        Debug_ShowAllRootFiles(context);
 
         return LoadAnyData();
     }
@@ -248,6 +247,7 @@ public class DicRepository
                 int version = dis.readInt();
 
                 cacheInfo.lastVisitedDicName = dis.readUTF();
+                cacheInfo.currItem = dis.readUTF();
 
             } catch (IOException e)
             {
@@ -259,12 +259,12 @@ public class DicRepository
 
     public ArrayList<DicInfo> GetDicInfos()
     {
-        if(currItem == "All")
+        if(cacheInfo.currItem == "All")
         {
             return dicInfos;
         }
 
-        if(mappedInfos.containsKey(currItem) == false)
+        if(mappedInfos.containsKey(cacheInfo.currItem) == false)
         {
             // Should not happen. mappedInfos Must Have currItem
             android.os.Debug.waitForDebugger();
@@ -272,12 +272,13 @@ public class DicRepository
         }
 
 
-        return mappedInfos.get(currItem);
+        return mappedInfos.get(cacheInfo.currItem);
     }
 
     public void ChangeCurrItem(String item)
     {
-        currItem = item;
+        cacheInfo.currItem = item;
+        SaveCacheData();
     }
 
 
@@ -546,16 +547,22 @@ public class DicRepository
         return false;
     }
 
-
-    public void UpdateCacheInfo(String dicName)
+    public void UpdateLastVisitedDicName(String dicName)
     {
         if (cacheInfo.lastVisitedDicName.equals(dicName)) return;
-
         cacheInfo.lastVisitedDicName = dicName;
+
+        SaveCacheData();
+    }
+
+
+    private void SaveCacheData()
+    {
         try (DataOutputStream dos = new DataOutputStream((new FileOutputStream(cacheFile))))
         {
             dos.writeInt(AppConfig.GetVersionByInt());
             dos.writeUTF(cacheInfo.lastVisitedDicName);
+            dos.writeUTF(cacheInfo.currItem);
         } catch (IOException e)
         {
             e.printStackTrace();
@@ -578,12 +585,12 @@ public class DicRepository
 
     public String GetCurrItem()
     {
-        if(items.contains(currItem) == false)
+        if(items.contains(cacheInfo.currItem) == false)
         {
-            currItem = "All";
+            cacheInfo.currItem = "All";
         }
 
-        return currItem;
+        return cacheInfo.currItem;
     }
 
     public boolean ChangeItemName(String fromName, String toName)

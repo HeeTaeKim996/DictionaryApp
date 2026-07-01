@@ -6,6 +6,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
@@ -91,7 +93,7 @@ public class MainInterface
         SetModeDefault();
         Interface_CleanAndShowAllWords(context);
         mainBinding.textViewDicName.setText(dicData.dicInfo.dicName);
-        DicRepository.Instance().UpdateCacheInfo(dicData.dicInfo.dicName);
+        DicRepository.Instance().UpdateLastVisitedDicName(dicData.dicInfo.dicName);
         mainBinding.buttonItem.setText(dicData.dicInfo.item);
         int dates = dicData.dicInfo.aimDate;
         if(dates == Integer.MAX_VALUE)
@@ -502,7 +504,12 @@ public class MainInterface
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
         }
 
-        binding.buttonItem.setText("None");
+        String currItem = DicRepository.Instance().GetCurrItem();
+        if(currItem == "All")
+        {
+            currItem = "None";
+        }
+        binding.buttonItem.setText(currItem);
         binding.buttonItem.setOnClickListener(v->
         {
             OnMakeNewDicButtonClicked_SetItemButton(context, binding);
@@ -1035,7 +1042,9 @@ public class MainInterface
             binding.layoutButtons.addView(button);
         }
 
-        Runnable UpdateInterface = () ->
+
+
+        Runnable UpdateInterfaces = () ->
         {
             if(dicInfo.aimDate == Integer.MAX_VALUE)
             {
@@ -1075,6 +1084,8 @@ public class MainInterface
             {
                 lastButton.setBackgroundColor(Color.parseColor("#EEEEEE"));
             }
+
+            UpdateAllMainInterface(context);
         };
 
         for(byte i = 0; i < aimDateAddString.length; i++)
@@ -1091,8 +1102,7 @@ public class MainInterface
 
                 DicRepository.Instance().UpdateMetaData(dicInfo);
 
-                UpdateInterface.run();
-                UpdateAllMainInterface(context);
+                UpdateInterfaces.run();
             });
         }
 
@@ -1105,14 +1115,76 @@ public class MainInterface
 
             DicRepository.Instance().UpdateMetaData(dicInfo);
 
-            UpdateInterface.run();
-            UpdateAllMainInterface(context);
+            UpdateInterfaces.run();
         });
 
-        UpdateInterface.run();
+        UpdateInterfaces.run();
+
+        binding.edittextSetByNumber.setText("");
+        binding.edittextSetByNumber.setOnEditorActionListener( (v, actionId, event) ->
+        {
+            if(actionId == EditorInfo.IME_ACTION_DONE)
+            {
+                if(OnEditTextSetByNumberEntered(context, v.getText().toString()))
+                {
+                    UpdateInterfaces.run();
+                }
+
+                InputMethodManager imm = (InputMethodManager) context
+                        .getSystemService(Context.INPUT_METHOD_SERVICE);
+                if(imm != null)
+                {
+                    imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                }
+                v.clearFocus();
+            }
+            return true;
+        });
     }
 
+    private boolean OnEditTextSetByNumberEntered(Context context, String num)
+    {
+        if(num == null || num.isEmpty() || num.length() != 8)
+        {
+            DebugHelper.Instance().ShowInformInterface(context, 
+                    "[Ex.19960821] 로 8글자여야 합니다");
+            return false;
+        }
 
+        char[] chars = num.toCharArray();
+        for(char c : chars)
+        {
+            if(c < '0' || c > '9')
+            {
+                DebugHelper.Instance().ShowInformInterface(context,
+                        "숫자만 입력해야 합니다");
+                return false;
+            }
+        }
+
+        int year = Integer.parseInt(num.substring(0, 4));
+        int month = Integer.parseInt(num.substring(4, 6));
+        int date = Integer.parseInt(num.substring(6, 8));
+
+        if(month == 0 || month > 12)
+        {
+            DebugHelper.Instance().ShowInformInterface(context,
+                    "월은 1월부터 12월까지 입력해야 합니다");
+            return false;
+        }
+
+        if(date == 0 || date > 31)
+        {
+            // 월별 일수는 다르지만, 그것까지는 잡지 않음
+            DebugHelper.Instance().ShowInformInterface(context,
+                    "일은 1부터 31까지 입력해야 합니다");
+            return false;
+        }
+
+        int dates = Calander.Instance().GetDates(year, month, date);
+        dicData.dicInfo.aimDate = dates;
+        return true;
+    }
 
     private Button CreateButton(Context context, String buttonText)
     {
