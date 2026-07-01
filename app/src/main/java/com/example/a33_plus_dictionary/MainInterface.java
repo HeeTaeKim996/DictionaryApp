@@ -1,6 +1,7 @@
 package com.example.a33_plus_dictionary;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
@@ -15,6 +16,7 @@ import com.example.a33_plus_dictionary.databinding.MainInterfaceBinding;
 import com.example.a33_plus_dictionary.databinding.OneStringBinding;
 import com.example.a33_plus_dictionary.databinding.OthersBinding;
 import com.example.a33_plus_dictionary.databinding.OthersItemReviseBinding;
+import com.example.a33_plus_dictionary.databinding.SetAimDateBinding;
 import com.example.a33_plus_dictionary.databinding.TwoStringBinding;
 import com.example.a33_plus_dictionary.databinding.VerticalButtonsBinding;
 import com.example.a33_plus_dictionary.databinding.WordBinding;
@@ -67,6 +69,10 @@ public class MainInterface
         {
             OnButtonItemClicked(context);
         });
+        mainBinding.buttonCalender.setOnClickListener(v->
+        {
+            OnSetAimdateButonClicked(context);
+        });
 
         UpdateAllMainInterface(context);
     }
@@ -87,6 +93,24 @@ public class MainInterface
         mainBinding.textViewDicName.setText(dicData.dicInfo.dicName);
         DicRepository.Instance().UpdateCacheInfo(dicData.dicInfo.dicName);
         mainBinding.buttonItem.setText(dicData.dicInfo.item);
+        int dates = dicData.dicInfo.aimDate;
+        if(dates == Integer.MAX_VALUE)
+        {
+            mainBinding.buttonCalender.setText("-");
+        }
+        else
+        {
+            mainBinding.buttonCalender.setText(Calander.Instance()
+                    .GetCalander(dates, true));
+        }
+        if(dates <= Calander.Instance().GetToday())
+        {
+            mainBinding.buttonCalender.setBackgroundColor(Color.parseColor("#AA0000"));
+        }
+        else
+        {
+            mainBinding.buttonCalender.setBackgroundColor(Color.parseColor("#6200EE"));
+        }
     }
 
 
@@ -382,8 +406,6 @@ public class MainInterface
 
     private void OnShowDictionariesButtonClicked(Context context)
     {
-
-
         DicReposBinding binding = DicReposBinding.inflate(LayoutInflater.from(context));
         AlertDialog dialog = new AlertDialog.Builder(context).setView(binding.getRoot())
                 .create();
@@ -420,6 +442,9 @@ public class MainInterface
         dicReposBinding.dicNames.removeAllViews();
 
         ArrayList<DicInfo> dicInfos = DicRepository.Instance().GetDicInfos();
+
+        int todayDates = Calander.Instance().GetToday();
+
         for (DicInfo dicInfo : dicInfos)
         {
             DicReposDicInfoBinding binding = DicReposDicInfoBinding
@@ -428,6 +453,21 @@ public class MainInterface
                     .setView(binding.getRoot()).create();
             binding.textDicname.setText(dicInfo.dicName);
             binding.textItemname.setText(dicInfo.item);
+
+            if(dicInfo.aimDate == Integer.MAX_VALUE)
+            {
+                binding.buttonAimdate.setText("-");
+            }
+            else
+            {
+                binding.buttonAimdate.setText(Calander.Instance()
+                        .GetCalander(dicInfo.aimDate, true));
+            }
+            if(dicInfo.aimDate <= todayDates)
+            {
+                binding.buttonAimdate.setBackgroundColor(Color.parseColor("#AA0000"));
+            }
+
             binding.getRoot().setOnClickListener(v->
             {
                 ChangeDic(v, dicInfo);
@@ -439,22 +479,6 @@ public class MainInterface
                 return true;
             });
             dicReposBinding.dicNames.addView(binding.getRoot());
-
-//            Button dicButton = new Button(context);
-//            dicButton.setAllCaps(false);
-//            dicButton.setText(dicInfo.dicName);
-//            dicButton.setOnClickListener(v ->
-//            {
-//                ChangeDic(v, dicInfo);
-//                dicReposDialog.dismiss();
-//            });
-//            dicReposBinding.dicNames.addView(dicButton);
-//            dicButton.setOnLongClickListener(v ->
-//            {
-//                OnDicLongClicked(v, dicInfo, dicReposDialog);
-//                return true;
-//            });
-
 
 
         }
@@ -513,15 +537,7 @@ public class MainInterface
         ArrayList<String> items = DicRepository.Instance().GetItems();
         for(String item : items)
         {
-            Button button = new Button(context);
-
-            button.setAllCaps(false);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            button.setLayoutParams(params);
-            button.setText(item);
+            Button button = CreateButton(context, item);
 
             button.setOnClickListener(v->
             {
@@ -975,6 +991,157 @@ public class MainInterface
         dicReposBinding.buttonItem.setText(newItem);
 
         UpdateDicRepos_DicNamesLayout(context, dicReposBinding, dicReposDialog);
+    }
+
+
+    private class SIPair
+    {
+        public SIPair(String InS, int Ini)
+        {
+            st = InS;
+            date = Ini;
+        }
+        String st;
+        int date;
+    }
+
+    SIPair[] aimDateAddString = new SIPair[]
+            {
+                    new SIPair("0", 0),
+                    new SIPair("3d", 3),
+                    new SIPair("1w", 7),
+                    new SIPair("2w", 14),
+                    new SIPair("3w", 21),
+                    new SIPair("4w", 28),
+                    new SIPair("4w", 28),
+                    new SIPair("8w", 56),
+                    new SIPair("8w", 56),
+                    new SIPair("12w",84),
+            };
+    private void OnSetAimdateButonClicked(Context context)
+    {
+        SetAimDateBinding binding = SetAimDateBinding.inflate(LayoutInflater.from(context));
+        AlertDialog dialog = new AlertDialog.Builder(context)
+                .setView(binding.getRoot()).create();
+        dialog.show();
+
+        binding.buttonExit.setOnClickListener(v-> { dialog.dismiss();});
+        DicInfo dicInfo = dicData.dicInfo;
+
+        for(int i = 0; i < aimDateAddString.length; i++)
+        {
+            Button button = CreateButton_SetWidthHeight(context, aimDateAddString[i].st,
+                    150, 120);
+            binding.layoutButtons.addView(button);
+        }
+
+        Runnable UpdateInterface = () ->
+        {
+            if(dicInfo.aimDate == Integer.MAX_VALUE)
+            {
+                binding.textView.setText("NOT SETTED");
+            }
+            else
+            {
+                binding.textView.setText(Calander.Instance()
+                        .GetCalander(dicInfo.aimDate, false));
+            }
+
+            int size = binding.layoutButtons.getChildCount();
+            for(int i = 0; i < size - 1; i++)
+            {
+                View view = binding.layoutButtons.getChildAt(i);
+
+                Button button = (Button) view;
+                if(dicInfo.aimIndex == i)
+                {
+                    button.setBackgroundColor(
+                            Color.parseColor("#6200EE"));
+                }
+                else
+                {
+                    button.setBackgroundColor(
+                            Color.parseColor("#EEEEEE"));
+                }
+            }
+
+            Button lastButton = (Button) binding.layoutButtons.getChildAt(size - 1);
+            if(dicInfo.aimIndex == Byte.MAX_VALUE)
+            {
+
+                lastButton.setBackgroundColor(Color.parseColor("#6200EE"));
+            }
+            else
+            {
+                lastButton.setBackgroundColor(Color.parseColor("#EEEEEE"));
+            }
+        };
+
+        for(byte i = 0; i < aimDateAddString.length; i++)
+        {
+            byte pos = i;
+
+            View view = binding.layoutButtons.getChildAt(i);
+            Button button = (Button) view;
+            button.setOnClickListener(v->
+            {
+                dicInfo.aimDate = Calander.Instance().GetToday()
+                        + aimDateAddString[pos].date;
+                dicInfo.aimIndex = pos;
+
+                DicRepository.Instance().UpdateMetaData(dicInfo);
+
+                UpdateInterface.run();
+                UpdateAllMainInterface(context);
+            });
+        }
+
+        Button button = CreateButton_SetWidthHeight(context, "-", 150, 120);
+        binding.layoutButtons.addView(button);
+        button.setOnClickListener(v->
+        {
+            dicInfo.aimDate = Integer.MAX_VALUE;
+            dicInfo.aimIndex = Byte.MAX_VALUE;
+
+            DicRepository.Instance().UpdateMetaData(dicInfo);
+
+            UpdateInterface.run();
+            UpdateAllMainInterface(context);
+        });
+
+        UpdateInterface.run();
+    }
+
+
+
+    private Button CreateButton(Context context, String buttonText)
+    {
+        Button button = new Button(context);
+
+        button.setAllCaps(false);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        button.setLayoutParams(params);
+        button.setText(buttonText);
+
+        return  button;
+    }
+    private  Button CreateButton_SetWidthHeight(Context context, String buttonText, int width,
+                                                int height)
+    {
+        Button button = new Button(context);
+
+        button.setAllCaps(false);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                width,
+                height
+        );
+        button.setLayoutParams(params);
+        button.setText(buttonText);
+
+        return  button;
     }
 
 }

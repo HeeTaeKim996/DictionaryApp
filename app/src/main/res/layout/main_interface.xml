@@ -35,27 +35,34 @@
     <LinearLayout
         android:id="@+id/second_line"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:orientation="horizontal">
-
-        <Space
-            android:layout_width="40dp"
-            android:layout_height="match_parent" />
 
         <TextView
             android:id="@+id/textView_dic_name"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="15"
+            android:layout_weight="2"
             android:text="제목"
-            android:textAppearance="@style/TextAppearance.AppCompat.Large" />
+            android:textAppearance="@style/TextAppearance.AppCompat.Large"
+            android:textSize="18dp" />
+
+        <Button
+            android:id="@+id/button_calender"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="260701"
+            android:textAllCaps="false"
+            android:textSize="15sp" />
 
         <Button
             android:id="@+id/button_item"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Item" />
+            android:text="Item"
+            android:textAllCaps="false" />
 
     </LinearLayout>
 

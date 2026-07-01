@@ -47,7 +47,7 @@ public class Calander
         return dates;
     }
 
-    private String GetCalander(int dates)
+    public String GetCalander(int dates, boolean isShortVersion)
     {
         int year = 1;
         int month = 0;
@@ -97,11 +97,23 @@ public class Calander
             }
         }
 
-
-        return CalanderToString(year, month, date) + "/" + DatesToDay[dates % 7];
+        if(isShortVersion)
+        {
+            return CalanderToString_ShortVersion(year, month, date);
+        }
+        else
+        {
+            return CalanderToString_Longversion(year, month, date) + "/" + DatesToDay[dates % 7];
+        }
     }
 
-    private String CalanderToString(int year, int month, int date)
+    private  String CalanderToString_ShortVersion(int year, int month, int date)
+    {
+        return String.format("%02d", year % 100) + String.format("%02d", month)
+                + String.format("%02d", date);
+    }
+
+    private String CalanderToString_Longversion(int year, int month, int date)
     {
         return String.format("%04d", year) + "/" + String.format("%02d", month)
                 + "/" + String.format("%02d", date);
@@ -112,6 +124,16 @@ public class Calander
         return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     }
 
+    public int GetToday()
+    {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+
+        int year = c.get(java.util.Calendar.YEAR);
+        int month = c.get(java.util.Calendar.MONTH) + 1; // 0~11로 반환되므로 +1 필수
+        int day = c.get(java.util.Calendar.DAY_OF_MONTH);
+
+        return GetDates(year, month, day);
+    }
 
 
 
@@ -161,8 +183,8 @@ public class Calander
     {
 
         int days = GetDates(year, month, day);
-        temp += CalanderToString(year, month, day) + " -> "
-                + GetCalander(days) + "(" + String.valueOf(days) + ")\n";
+        temp += CalanderToString_Longversion(year, month, day) + " -> "
+                + GetCalander(days, true) + "(" + String.valueOf(days) + ")\n";
     }
 
 }

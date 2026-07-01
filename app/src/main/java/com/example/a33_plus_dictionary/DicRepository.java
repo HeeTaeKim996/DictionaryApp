@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Log;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.result.ActivityResultLauncher;
@@ -84,7 +85,9 @@ public class DicRepository
 
         mappedInfos = new HashMap<String, ArrayList<DicInfo>>();
 
+
 //        DeleteAllFilesFromRootFile();
+
 
         InitializeData();
 
@@ -117,6 +120,8 @@ public class DicRepository
         }
         DicInfo dicInfo = new DicInfo();
         dicInfo.dicName = "BaseData";
+        AddInfo(dicInfo);
+        SaveMetaData(dicInfo);
         return new DicData(dicInfo, null);
     }
 
@@ -217,6 +222,7 @@ public class DicRepository
                             int version = dis.readInt();
                             dicInfo.item = dis.readUTF();
                             dicInfo.aimDate = dis.readInt();
+                            dicInfo.aimIndex = dis.readByte();
 
                         } catch (IOException e)
                         {
@@ -294,6 +300,11 @@ public class DicRepository
         SaveMetaData(dicInfo);
     }
 
+    public void UpdateMetaData(DicInfo dicInfo)
+    {
+        SaveMetaData(dicInfo);
+    }
+
     private void SaveMetaData(DicInfo dicInfo)
     {
         File metFile = MakeMetFile(dicInfo.dicName);
@@ -304,6 +315,7 @@ public class DicRepository
 
             dos.writeUTF(dicInfo.item);
             dos.writeInt(dicInfo.aimDate);
+            dos.writeByte(dicInfo.aimIndex);
 
             dos.flush();
         } catch (IOException e)
@@ -407,16 +419,15 @@ public class DicRepository
         try (DataInputStream dis = new DataInputStream(new FileInputStream(loadedFile)))
         {
             int version = dis.readInt();
-            if (version == 11)
-            {
-                return LoadData(dicInfo, dis);
-            }
+
+            return LoadData(dicInfo, dis);
+
         } catch (IOException e)
         {
             e.printStackTrace();
         }
 
-        return null;
+        return new DicData(dicInfo, new ArrayList<SPair>());
     }
 
     public DicData LoadData(DicInfo dicInfo, DataInputStream dis)
@@ -439,7 +450,8 @@ public class DicRepository
             e.printStackTrace();
         }
 
-        return null;
+
+        return new DicData(dicInfo, new ArrayList<SPair>());
     }
 
     private void DeleteAllFilesFromRootFile()
@@ -787,7 +799,7 @@ public class DicRepository
 
     private void Debug_ShowAllRootFiles(Context context)
     {
-        String temp = "";
+        String temp = ".\nLOG\n\n";
         File[] files = rootFile.listFiles();
         for (File file : files)
         {
@@ -808,7 +820,7 @@ public class DicRepository
             temp += file.toString() + "\n";
         }
 
-        DebugHelper.Instance().ShowInformInterface(context, temp);
+        Log.d("ShowRootFiles", temp);
     }
 }
 
